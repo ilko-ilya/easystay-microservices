@@ -1,0 +1,67 @@
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    preferIpAddress: true
+
+server:
+  port: 8085
+
+spring:
+  application:
+    name: payment-service
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+
+  datasource:
+    url: jdbc:postgresql://postgres:5432/payment
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: Q12345w6
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 10000
+      max-lifetime: 1800000
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database: postgresql
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        show_sql: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+    endpoint:
+      health:
+        show-details: always
+
+  tracing:
+    enabled: false
+    sampling:
+      probability: 0.0
+
+  zipkin:
+    tracing:
+      enabled: false
+
+logging:
+  level:
+    org.springframework: INFO
+    org.hibernate.SQL: DEBUG
+
+stripe:
+  secret-key: sk_test_51OYCr5CveEz9u1BEKxFrSC875hw1Lap28IGYUjOk3smPvnnkKs1HRBaKFRqjooeWRXknwkicKTJlVtdGMhnF8uEF00NHaA2wrY

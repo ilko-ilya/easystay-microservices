@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: address-service
+  config:
+    import: optional:configserver:http://config-server:8888
+logging:
+  level:
+    org.springframework.security: DEBUG

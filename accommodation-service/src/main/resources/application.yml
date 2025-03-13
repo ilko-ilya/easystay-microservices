@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: accommodation-service
+  config:
+    import: optional:configserver:http://config-server:8888
+logging:
+  level:
+    root: INFO
+    org.springframework.web: WARN
+    org.hibernate: WARN
+
+

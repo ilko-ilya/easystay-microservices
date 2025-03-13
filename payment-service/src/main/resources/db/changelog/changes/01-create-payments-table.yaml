@@ -1,0 +1,51 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-payments-table
+      author: IlyaSamilyak
+      changes:
+        - createTable:
+            tableName: payments
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: user_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: status
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: booking_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    unique: true
+
+              - column:
+                  name: session_url
+                  type: varchar(500)
+
+              - column:
+                  name: session_id
+                  type: varchar(255)
+
+              - column:
+                  name: phone_number
+                  type: varchar(20)
+
+              - column:
+                  name: amount_to_pay
+                  type: numeric(10,2)
+                  constraints:
+                    nullable: false

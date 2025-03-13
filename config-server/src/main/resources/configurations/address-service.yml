@@ -1,0 +1,52 @@
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    preferIpAddress: true  # Важно в контейнерной среде
+
+server:
+  port: 8083
+
+spring:
+  application:
+    name: address-service
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://postgres:5432/address
+    username: postgres
+    password: Q12345w6
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+#  redis:
+#    host: localhost
+#    port: 6379
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+    endpoint:
+      health:
+        show-details: always
+
+  tracing:
+    enabled: false
+    sampling:
+      probability: 0.0
+
+  zipkin:
+    tracing:
+      enabled: false

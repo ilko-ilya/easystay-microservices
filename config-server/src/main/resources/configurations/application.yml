@@ -1,0 +1,27 @@
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    preferIpAddress: true
+
+spring:
+  cloud:
+    config:
+      fail-fast: true   # Если не удалось получить конфиг – пробуем ещё раз
+      retry:
+        max-attempts: 10  # Количество попыток подключения
+        initial-interval: 2000  # Интервал между попытками (2 сек)
+        multiplier: 1.5  # Каждая следующая попытка будет дольше
+        max-interval: 10000  # Максимальный интервал (10 сек)
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

@@ -1,0 +1,61 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-bookings-table
+      author: IlyaSamilyak
+      changes:
+        - createTable:
+            tableName: bookings
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: user_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: accommodation_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: check_in_date
+                  type: date
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: check_out_date
+                  type: date
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: status
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: total_price
+                  type: numeric(10,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: phone_number
+                  type: varchar(20)
+
+              - column:
+                  name: payment_id
+                  type: varchar(255)
+                  constraints:
+                    unique: true

@@ -1,0 +1,55 @@
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    preferIpAddress: true
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://postgres:5432/auth
+    username: postgres
+    password: Q12345w6
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+#  redis:
+ #   host: localhost
+ #   port: 6379
+jwt:
+  secret: "my-very-very-secret-key-should-be-long"
+  expiration: 86400000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+    endpoint:
+      health:
+        show-details: always
+
+  tracing:
+    enabled: false
+    sampling:
+      probability: 0.0
+
+  zipkin:
+    tracing:
+      enabled: false
+

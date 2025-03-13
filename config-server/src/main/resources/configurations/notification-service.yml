@@ -1,0 +1,53 @@
+server:
+  port: 8086
+
+spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: guest
+    password: guest
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    preferIpAddress: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+    endpoint:
+      health:
+        show-details: always
+
+telegram:
+  bot-username: booking_easy_stay_bot
+  bot-token: 8126386454:AAFEdnT1w1OC1pyYJgL213T7vSj-c2PWs
+  chat-id: 589113001
+
+logging:
+  level:
+    com.netflix.eureka: DEBUG
+    org.springframework.cloud: DEBUG
+
+
+
+
+  #  mail:
+#    host: smtp.gmail.com
+#    port: 587
+#    username: samilyak.ilya.test@gmail.com  # Замени на свой email
+#    password: 123Q456W  # Используй переменные окружения!
+#    properties:
+ #     mail:
+#        smtp:
+#          auth: true
+#          starttls:
+#            enable: true
+

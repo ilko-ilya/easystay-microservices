@@ -1,0 +1,96 @@
+server:
+  port: 8222
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka
+  instance:
+    preferIpAddress: true
+#      defaultZone: http://eureka-server:8761/eureka
+#      defaultZone: http://localhost:8761/eureka
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+      routes:
+        - id: auth-service
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - RemoveRequestHeader=Cookie
+
+        - id: accommodation-service
+          uri: lb://ACCOMMODATION-SERVICE
+          predicates:
+            - Path=/api/accommodations/**
+          filters:
+            - RemoveRequestHeader=Cookie
+
+        - id: address-service
+          uri: lb://ADDRESS-SERVICE
+          predicates:
+            - Path=/api/addresses/**
+          filters:
+            - RemoveRequestHeader=Cookie
+
+        - id: booking-service
+          uri: lb://BOOKING-SERVICE
+          predicates:
+            - Path=/api/bookings/**
+          filters:
+            - RemoveRequestHeader=Cookie
+
+        - id: payment-service
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - RemoveRequestHeader=Cookie
+
+        - id: notification-service
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/api/notification/**
+          filters:
+            - RemoveRequestHeader=Cookie
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    gateway:
+      enabled: true
+
+  tracing:
+    enabled: false
+    sampling:
+      probability: 0.0
+  zipkin:
+    tracing:
+      enabled: false
+
+logging:
+  level:
+    org.springframework.security: WARN
+    org.springframework.cloud.gateway: INFO
+    org.springframework.web.reactive: WARN
+    org.springframework.web.server: WARN
+    reactor.netty: WARN
+
