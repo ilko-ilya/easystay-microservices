@@ -10,10 +10,12 @@ import com.samilyak.bookingservice.dto.client.accommodation.AccommodationDto;
 import com.samilyak.bookingservice.dto.client.notification.NotificationRequestDto;
 import com.samilyak.bookingservice.dto.client.payment.PaymentRequestDto;
 import com.samilyak.bookingservice.dto.client.payment.PaymentResponseDto;
+import com.samilyak.bookingservice.dto.notification.NotificationDto;
 import com.samilyak.bookingservice.exception.AccessDeniedException;
 import com.samilyak.bookingservice.exception.AccommodationNotAvailableException;
 import com.samilyak.bookingservice.exception.EntityNotFoundException;
 import com.samilyak.bookingservice.mapper.BookingMapper;
+import com.samilyak.bookingservice.messaging.NotificationProducer;
 import com.samilyak.bookingservice.model.Booking;
 import com.samilyak.bookingservice.repository.BookingRepository;
 import feign.FeignException;
@@ -30,6 +32,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.math.BigDecimal;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 
@@ -44,6 +47,7 @@ public class BookingServiceImpl implements BookingService {
     private final BookingMapper bookingMapper;
     private final UserClient userClient;
     private final NotificationClient notificationClient;
+    private final NotificationProducer notificationProducer;
 
     @CacheEvict(value = {"userBookings"}, key = "#authentication.name")
     @Override
@@ -63,54 +67,81 @@ public class BookingServiceImpl implements BookingService {
             throw new IllegalStateException("Не удалось получить userId для email: " + email);
         }
 
-        log.info("Запрашиваем жильё по id: {}", requestDto.accommodationId());
-        AccommodationDto accommodation = accommodationClient.getAccommodationById(
-                requestDto.accommodationId(),
-                "Bearer " + token
-        );
+        try {
+            log.info("Запрашиваем жильё по id: {}", requestDto.accommodationId());
+            AccommodationDto accommodation = accommodationClient.getAccommodationById(
+                    requestDto.accommodationId(),
+                    "Bearer " + token
+            );
 
-        if (!bookingRepository.findOverlappingBookings(
-                requestDto.accommodationId(),
-                requestDto.checkInDate(),
-                requestDto.checkOutDate()
-        ).isEmpty()) {
-            throw new AccommodationNotAvailableException("Accommodation is not available for these dates.");
+            if (!bookingRepository.findOverlappingBookings(
+                    requestDto.accommodationId(),
+                    requestDto.checkInDate(),
+                    requestDto.checkOutDate()
+            ).isEmpty()) {
+                throw new AccommodationNotAvailableException("Accommodation is not available for these dates.");
+            }
+
+            long days = ChronoUnit.DAYS.between(requestDto.checkInDate(), requestDto.checkOutDate());
+            BigDecimal totalPrice = accommodation.dailyRate().multiply(BigDecimal.valueOf(days));
+            log.info("💰 Рассчитанная цена за {} дней: {}", days, totalPrice);
+
+            Booking booking = bookingMapper.toModel(requestDto, userId);
+            booking.setStatus(Booking.Status.PENDING);
+            booking.setTotalPrice(totalPrice);
+            Booking savedBooking = bookingRepository.save(booking);
+
+            // ✅ Создаём платёж
+            PaymentRequestDto paymentRequest = new PaymentRequestDto(
+                    savedBooking.getId(),
+                    savedBooking.getTotalPrice(),
+                    savedBooking.getPhoneNumber()
+            );
+
+            log.info("📞 Отправляем phoneNumber в PaymentService: {}", requestDto.phoneNumber());
+
+            PaymentResponseDto paymentResponse = paymentClient.createPayment(paymentRequest, "Bearer " + token);
+            savedBooking.setPaymentId(paymentResponse.sessionId());
+            savedBooking.setStatus(Booking.Status.CONFIRMED);
+            bookingRepository.save(savedBooking);
+
+            // ✅ Отправляем уведомление через RabbitMQ
+            NotificationDto notification = new NotificationDto(
+                    userId,
+                    requestDto.phoneNumber(),
+                    "Создана сессия оплаты для бронирования #" + savedBooking.getId() + ". " +
+                            "Пожалуйста, завершите оплату."
+            );
+
+            notificationProducer.sendNotification(notification);
+            log.info("📨 Уведомление отправлено в очередь RabbitMQ для bookingId={}", savedBooking.getId());
+
+            return bookingMapper.toDto(savedBooking);
+        } catch (RuntimeException ex) {
+            // Компенсация: помечаем бронь как CANCELED (если успели создать)
+            log.error("❌ Ошибка при создании бронирования: {}", ex.getMessage(), ex);
+            // на случай если бронирование уже создано в БД и есть ID
+            bookingRepository.findTopByOrderByIdDesc().ifPresent(b -> {
+                if (b.getStatus() == Booking.Status.PENDING) {
+                    b.setStatus(Booking.Status.CANCELED);
+                    bookingRepository.save(b);
+                    log.info("↩️ Бронь {} помечена как CANCELED из-за ошибки", b.getId());
+                }
+            });
+            throw ex;
         }
 
-        long days = ChronoUnit.DAYS.between(requestDto.checkInDate(), requestDto.checkOutDate());
-        BigDecimal totalPrice = accommodation.dailyRate().multiply(BigDecimal.valueOf(days));
-        log.info("💰 Рассчитанная цена за {} дней: {}", days, totalPrice);
-
-        Booking booking = bookingMapper.toModel(requestDto, userId);
-        booking.setStatus(Booking.Status.PENDING);
-        booking.setTotalPrice(totalPrice);
-        Booking savedBooking = bookingRepository.save(booking);
-
-        // ✅ Создаём платёж
-        PaymentRequestDto paymentRequest = new PaymentRequestDto(
-                savedBooking.getId(),
-                savedBooking.getTotalPrice(),
-                savedBooking.getPhoneNumber()
-        );
-
-        log.info("📞 Отправляем phoneNumber в PaymentService: {}", requestDto.phoneNumber());
-
-        PaymentResponseDto paymentResponse = paymentClient.createPayment(paymentRequest, "Bearer " + token);
-        savedBooking.setPaymentId(paymentResponse.sessionId());
-        savedBooking.setStatus(Booking.Status.CONFIRMED);
-        bookingRepository.save(savedBooking);
-
-        // ✅ Отправляем уведомление через Feign-клиент
-        log.info("📢 Отправляем уведомление об успешном платеже...");
-        NotificationRequestDto notificationRequest = new NotificationRequestDto(
-                userId,
-                requestDto.phoneNumber(),
-                "Оплата прошла успешно! Ваше бронирование подтверждено."
-        );
-
-        notificationClient.sendNotification(notificationRequest);
-
-        return bookingMapper.toDto(savedBooking);
+//        // ✅ Отправляем уведомление через Feign-клиент
+//        log.info("📢 Отправляем уведомление об успешном платеже...");
+//        NotificationRequestDto notificationRequest = new NotificationRequestDto(
+//                userId,
+//                requestDto.phoneNumber(),
+//                "Оплата прошла успешно! Ваше бронирование подтверждено."
+//        );
+//
+//        notificationClient.sendNotification(notificationRequest);
+//
+//        return bookingMapper.toDto(savedBooking);
     }
 
     @Cacheable(value = "userBookings", key = "#authentication.name", unless = "#result.size() == 0")
@@ -156,6 +187,12 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new EntityNotFoundException("Booking not found with id: " + id));
 
         bookingRepository.delete(booking);
+    }
+
+    @Override
+    public Booking getLastBooking() {
+        return bookingRepository.findTopByOrderByIdDesc()
+                .orElseThrow(() -> new EntityNotFoundException("No bookings found"));
     }
 
     private Long getUserIdFromAuthentication(Authentication authentication) {

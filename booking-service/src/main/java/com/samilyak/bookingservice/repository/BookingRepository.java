@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
@@ -26,4 +27,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b WHERE b.checkOutDate <= :tomorrow AND b.status != 'CANCELED'")
     List<Booking> findExpiredBookings(@Param("tomorrow") LocalDate tomorrow);
+
+    Optional<Booking> findTopByOrderByIdDesc();
 }

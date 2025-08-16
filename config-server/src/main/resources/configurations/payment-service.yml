@@ -64,4 +64,4 @@ logging:
     org.hibernate.SQL: DEBUG
 
 stripe:
-  secret-key: sk_test_51OYCr5CveEz9u1BEKxFrSC875hw1Lap28IGYUjOk3smPvnnkKs1HRBaKFRqjooeWRXknwkicKTJlVtdGMhnF8uEF00NHaA2wrY
+  secret-key: ${STRIPE_SECRET_KEY}

@@ -2,6 +2,7 @@ package com.samilyak.bookingservice.service;
 
 import com.samilyak.bookingservice.dto.booking.BookingRequestDto;
 import com.samilyak.bookingservice.dto.booking.BookingResponseDto;
+import com.samilyak.bookingservice.model.Booking;
 import org.springframework.security.core.Authentication;
 
 import java.util.List;
@@ -17,4 +18,6 @@ public interface BookingService {
     Long getUserIdByBookingId(Long bookingId);
 
     void deleteBookingById(Long id);
+
+    Booking getLastBooking();
 }
