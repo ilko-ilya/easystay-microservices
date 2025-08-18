@@ -14,15 +14,20 @@ public class NotificationPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
-    public void sendNotification(Long userId, String phone, String message) {
+    public void publish(NotificationDto dto, String channel) {
+        String routingKey = switch (channel) {
+            case "sms" -> RabbitMQConfig.SMS_ROUTING_KEY;
+            case "email" -> RabbitMQConfig.EMAIL_ROUTING_KEY;
+            case "telegram" -> RabbitMQConfig.TELEGRAM_ROUTING_KEY;
+            default -> throw new IllegalArgumentException("Неизвестный канал: " + channel);
+        };
 
-        NotificationDto notificationDto = new NotificationDto(userId, phone, message);
+        log.info("📨 Отправка уведомления [{}] в очередь: {}", channel, dto);
 
-        log.info("Отправка уведомления в очередь: {}", notificationDto);
         rabbitTemplate.convertAndSend(
-                RabbitMQConfig.BOOKING_NOTIFICATION_EXCHANGE,
-                RabbitMQConfig.BOOKING_NOTIFICATION_ROUTING_KEY,
-                notificationDto
+                RabbitMQConfig.EXCHANGE,
+                routingKey,
+                dto
         );
     }
 }

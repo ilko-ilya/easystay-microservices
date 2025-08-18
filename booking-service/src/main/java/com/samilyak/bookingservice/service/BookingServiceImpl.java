@@ -7,7 +7,6 @@ import com.samilyak.bookingservice.client.UserClient;
 import com.samilyak.bookingservice.dto.booking.BookingRequestDto;
 import com.samilyak.bookingservice.dto.booking.BookingResponseDto;
 import com.samilyak.bookingservice.dto.client.accommodation.AccommodationDto;
-import com.samilyak.bookingservice.dto.client.notification.NotificationRequestDto;
 import com.samilyak.bookingservice.dto.client.payment.PaymentRequestDto;
 import com.samilyak.bookingservice.dto.client.payment.PaymentResponseDto;
 import com.samilyak.bookingservice.dto.notification.NotificationDto;
@@ -32,7 +31,6 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.math.BigDecimal;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Optional;
 
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 
@@ -113,7 +111,7 @@ public class BookingServiceImpl implements BookingService {
                             "Пожалуйста, завершите оплату."
             );
 
-            notificationProducer.sendNotification(notification);
+            notificationProducer.sendNotification(notification, List.of("telegram", "sms"));
             log.info("📨 Уведомление отправлено в очередь RabbitMQ для bookingId={}", savedBooking.getId());
 
             return bookingMapper.toDto(savedBooking);

@@ -2,7 +2,7 @@ package com.samilyak.notification.event;
 
 import com.samilyak.notification.config.RabbitMQConfig;
 import com.samilyak.notification.dto.NotificationDto;
-import com.samilyak.notification.service.NotificationService;
+import com.samilyak.notification.service.NotificationFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -13,12 +13,30 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class NotificationListener {
 
-    private final NotificationService notificationService;
+    private final NotificationFactory factory;
 
-    @RabbitListener(queues = RabbitMQConfig.BOOKING_NOTIFICATION_QUEUE)
-    public void handleNotification(NotificationDto notificationDto) {
-        log.info("Получено уведомление: {}", notificationDto);
+    @RabbitListener(queues = RabbitMQConfig.TELEGRAM_QUEUE)
+    public void handleTelegram(NotificationDto dto) {
+        processNotification(dto, "telegram");
+    }
 
-        notificationService.sendNotification(notificationDto);
+    @RabbitListener(queues = RabbitMQConfig.SMS_QUEUE)
+    public void handleSms(NotificationDto dto) {
+        processNotification(dto, "sms");
+    }
+
+    @RabbitListener(queues = RabbitMQConfig.EMAIL_QUEUE)
+    public void handleEmail(NotificationDto dto) {
+        processNotification(dto, "email");
+    }
+
+    private void processNotification(NotificationDto dto, String channel) {
+        try {
+            factory.getSender(channel).send(dto);
+            log.info("✅ Уведомление отправлено через {}", channel);
+        } catch (Exception e) {
+            log.error("❌ Ошибка отправки через {}: {}", channel, e.getMessage());
+        }
     }
 }
+
