@@ -125,6 +125,14 @@ public class BookingServiceImpl implements BookingService {
                     bookingRepository.save(b);
                     log.info("↩️ Бронь {} помечена как CANCELED из-за ошибки", b.getId());
                 }
+                if (b.getPaymentId() != null) {
+                    try {
+                        paymentClient.cancelPayment(b.getPaymentId());
+                        log.info("Платёж {} отменён", b.getPaymentId());
+                    } catch (Exception cancelEx) {
+                        log.warn("⚠️ Не удалось отменить платёж {}: {}", b.getPaymentId(), cancelEx.getMessage());
+                    }
+                }
             });
             throw ex;
         }

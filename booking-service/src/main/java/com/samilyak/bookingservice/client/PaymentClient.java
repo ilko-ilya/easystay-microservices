@@ -4,6 +4,7 @@ import com.samilyak.bookingservice.dto.client.payment.PaymentRequestDto;
 import com.samilyak.bookingservice.dto.client.payment.PaymentResponseDto;
 import com.samilyak.bookingservice.dto.client.payment.PaymentStatusDto;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,5 +22,8 @@ public interface PaymentClient {
 
     @GetMapping("/{bookingId}/status")
     PaymentStatusDto getPaymentStatus(@PathVariable ("bookingId") Long bookingId);
+
+    @DeleteMapping("/payments/{sessionId}")
+    void cancelPayment(@PathVariable String sessionId);
 
 }
