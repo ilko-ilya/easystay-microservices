@@ -11,7 +11,8 @@ public record AccommodationDto(
         AddressResponseDto location,
         List<String> amenities,
         BigDecimal dailyRate,
-        Integer availability
+        Integer availability,
+        Long version
 
 ) {
 }

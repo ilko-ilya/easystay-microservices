@@ -10,6 +10,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -52,6 +53,11 @@ public class Accommodation {
 
     @Column(nullable = false, name = "address_id")
     private Long addressId;
+
+    @Version
+    @Column(nullable = false, name = "version")
+    private Long version;
+
 
     public enum Type {
         HOUSE,

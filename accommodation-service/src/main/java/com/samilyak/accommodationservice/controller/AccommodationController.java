@@ -1,6 +1,8 @@
 package com.samilyak.accommodationservice.controller;
 
 import com.samilyak.accommodationservice.dto.AccommodationDto;
+import com.samilyak.accommodationservice.dto.AccommodationLockCommand;
+import com.samilyak.accommodationservice.dto.AccommodationLockResult;
 import com.samilyak.accommodationservice.dto.AccommodationRequestDto;
 import com.samilyak.accommodationservice.dto.AccommodationUpdateDto;
 import com.samilyak.accommodationservice.service.AccommodationService;
@@ -24,6 +26,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
@@ -100,5 +104,51 @@ public class AccommodationController {
     @ResponseStatus(NO_CONTENT)
     public void deleteById(@PathVariable ("id") Long id) {
         accommodationService.deleteById(id);
+    }
+
+    // ✅ НОВЫЕ ENDPOINTS ДЛЯ РАБОТЫ С ДОСТУПНОСТЬЮ ДАТ
+
+    @GetMapping("/{id}/availability")
+    @Operation(summary = "Check accommodation availability",
+            description = "Check if accommodation is available for given dates")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Boolean> checkAvailability(
+            @PathVariable("id") Long id,
+            @RequestParam("checkIn") LocalDate checkIn,
+            @RequestParam("checkOut") LocalDate checkOut,
+            @RequestHeader(value = AUTHORIZATION, required = false) String authHeader) {
+        log.info("📅 Проверка доступности жилья {} с {} по {}", id, checkIn, checkOut);
+        boolean available = accommodationService.isAvailable(id, checkIn, checkOut);
+        return ResponseEntity.ok(available);
+    }
+
+    @PostMapping("/{id}/lock-dates")
+    @Operation(summary = "Lock accommodation dates",
+            description = "Atomically lock accommodation dates for booking")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<AccommodationLockResult> lockDates(
+            @PathVariable("id") Long id,
+            @RequestBody @Valid AccommodationLockCommand lockCommand,
+            @RequestHeader(value = AUTHORIZATION, required = false) String authHeader) {
+        log.info("🔒 Блокировка дат для жилья {}: с {} по {}, версия {}",
+                id, lockCommand.checkInDate(), lockCommand.checkOutDate(), lockCommand.expectedVersion());
+
+        AccommodationLockResult result = accommodationService.lockDates(id, lockCommand);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/{id}/unlock-dates")
+    @Operation(summary = "Unlock accommodation dates",
+            description = "Unlock previously locked dates (compensation)")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> unlockDates(
+            @PathVariable("id") Long id,
+            @RequestBody @Valid AccommodationLockCommand unlockCommand,
+            @RequestHeader(value = AUTHORIZATION, required = false) String authHeader) {
+        log.info("🔓 Разблокировка дат для жилья {}: с {} по {}",
+                id, unlockCommand.checkInDate(), unlockCommand.checkOutDate());
+
+        accommodationService.unlockDates(id, unlockCommand);
+        return ResponseEntity.ok().build();
     }
 }

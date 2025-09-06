@@ -1,4 +1,4 @@
-package com.samilyak.bookingservice.dto.client.accommodation;
+package com.samilyak.bookingservice.dto.accommodation;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -10,7 +10,8 @@ public record AccommodationDto(
         String size,
         List<String> amenities,
         BigDecimal dailyRate,
-        Integer availability
+        Integer availability,
+        Long version
 
 ) {
 }
