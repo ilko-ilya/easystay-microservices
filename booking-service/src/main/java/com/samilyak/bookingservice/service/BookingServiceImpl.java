@@ -68,8 +68,7 @@ public class BookingServiceImpl implements BookingService {
         try {
             // 1. 📌 Получаем жильё
             AccommodationDto accommodation = accommodationClient.getAccommodationById(
-                    requestDto.accommodationId(),
-                    "Bearer " + token
+                    requestDto.accommodationId()
             );
 
             // 2. 🔒 Блокируем даты
@@ -80,8 +79,7 @@ public class BookingServiceImpl implements BookingService {
                             requestDto.checkInDate(),
                             requestDto.checkOutDate(),
                             accommodation.version()
-                    ),
-                    "Bearer " + token
+                    )
             );
 
             if (!lockResponse.success()) {
@@ -104,8 +102,7 @@ public class BookingServiceImpl implements BookingService {
                             savedBooking.getId(),
                             savedBooking.getTotalPrice(),
                             savedBooking.getPhoneNumber()
-                    ),
-                    "Bearer " + token
+                    )
             );
 
             // 6. ✅ Подтверждаем бронь
@@ -147,15 +144,13 @@ public class BookingServiceImpl implements BookingService {
     @Cacheable(value = "booking", key = "#id + ':' + #authentication.name")
     @Override
     public BookingResponseDto getBookingById(Long id, Authentication authentication) {
-        Booking booking = bookingRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Booking not found with id: " + id));
+        Booking booking = getBookingById(id);
 
         Long userId = getUserIdFromAuthentication(authentication);
 
         if (!booking.getUserId().equals(userId)) {
             throw new AccessDeniedException("You are not authorized to view this booking.");
         }
-
         return bookingMapper.toDto(booking);
     }
 
@@ -163,8 +158,7 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public Long getUserIdByBookingId(Long bookingId) {
         log.info("📌 Запрос на получение userId для bookingId = {}", bookingId);
-        Booking booking = bookingRepository.findById(bookingId).orElseThrow(
-                () -> new EntityNotFoundException("Can't find booking by bookingID: " + bookingId));
+        Booking booking = getBookingById(bookingId);
         Long userId = booking.getUserId();
         log.info("✅ Найден userId: {}", userId);
         return userId;
@@ -173,9 +167,7 @@ public class BookingServiceImpl implements BookingService {
     @CacheEvict(value = {"userBookings"}, key = "#authentication.name")
     @Override
     public void deleteBookingById(Long id) {
-        Booking booking = bookingRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Booking not found with id: " + id));
-
+        Booking booking = getBookingById(id);
         bookingRepository.delete(booking);
     }
 
@@ -217,6 +209,11 @@ public class BookingServiceImpl implements BookingService {
         } catch (FeignException e) {
             throw new RuntimeException("Error while fetching user ID from auth-service", e);
         }
+    }
+
+    private Booking getBookingById(Long id) {
+        return bookingRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Booking not found with id: " + id));
     }
 
     private Booking savePendingBooking(BookingRequestDto dto, Long userId, BigDecimal totalPrice) {

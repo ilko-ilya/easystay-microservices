@@ -65,3 +65,4 @@ logging:
 
 stripe:
   secret-key: ${STRIPE_SECRET_KEY}
+  webhook-secret: whsec_test_stub_123456

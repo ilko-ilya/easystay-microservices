@@ -20,31 +20,26 @@ import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 public interface AccommodationClient {
 
     @GetMapping("/api/accommodations/{id}")
-    AccommodationDto getAccommodationById(
-            @PathVariable ("id") Long id,
-            @RequestHeader(AUTHORIZATION) String token
-    );
+    AccommodationDto getAccommodationById(@PathVariable("id") Long id);
 
     @GetMapping("/api/accommodations/{id}/availability")
-    boolean isAccommodationAvailable(@PathVariable ("id") Long id,
-                                     @RequestParam ("checkIn") LocalDate checkIn,
-                                     @RequestParam ("checkOut") LocalDate checkOut
+    boolean isAccommodationAvailable(@PathVariable("id") Long id,
+                                     @RequestParam("checkIn") LocalDate checkIn,
+                                     @RequestParam("checkOut") LocalDate checkOut
     );
 
     // ✅ НОВЫЙ МЕТОД для атомарной блокировки дат
     @PostMapping("/api/accommodations/{id}/lock-dates")
     AccommodationLockResponse lockDates(
             @PathVariable("id") Long id,
-            @RequestBody AccommodationLockRequest lockRequest,
-            @RequestHeader(AUTHORIZATION) String token
+            @RequestBody AccommodationLockRequest lockRequest
     );
 
     // ✅ НОВЫЙ МЕТОД для разблокировки дат (компенсация)
     @PostMapping("/api/accommodations/{id}/unlock-dates")
     ResponseEntity<Void> unlockDates(
             @PathVariable("id") Long id,
-            @RequestBody AccommodationLockRequest unlockRequest,
-            @RequestHeader(AUTHORIZATION) String token
+            @RequestBody AccommodationLockRequest unlockRequest
     );
 }
 

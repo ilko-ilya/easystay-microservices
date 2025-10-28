@@ -94,4 +94,10 @@ public class PaymentServiceImpl implements PaymentService {
                 .map(paymentMapper::toDto)
                 .toList();
     }
+
+    @Override
+    public Payment findBySessionId(String sessionId) {
+        return paymentRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("Payment not found by sessionId" + sessionId));
+    }
 }

@@ -17,8 +17,7 @@ import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 public interface PaymentClient {
 
     @PostMapping("/api/payments")
-    PaymentResponseDto createPayment(@RequestBody PaymentRequestDto requestDto,
-                                     @RequestHeader(AUTHORIZATION) String token);
+    PaymentResponseDto createPayment(@RequestBody PaymentRequestDto requestDto);
 
     @GetMapping("/{bookingId}/status")
     PaymentStatusDto getPaymentStatus(@PathVariable ("bookingId") Long bookingId);
