@@ -19,9 +19,7 @@ public class BookingCompensationService {
     private final AccommodationClient accommodationClient;
     private final PaymentClient paymentClient;
 
-    public void compensate(Booking booking, BookingRequestDto dto, String token) {
-        String bearer = "Bearer " + token;
-
+    public void compensate(Booking booking, BookingRequestDto dto) {
         // Подтягиваем свежую версию из БД
         Booking currentBooking = bookingRepository.findById(booking.getId()).orElse(null);
 
@@ -47,8 +45,7 @@ public class BookingCompensationService {
                                 dto.checkInDate(),
                                 dto.checkOutDate(),
                                 null
-                        ),
-                        bearer
+                        )
                 );
                 log.info("✅ Даты разблокированы для accommodation {}", dto.accommodationId());
             } catch (Exception unlockEx) {

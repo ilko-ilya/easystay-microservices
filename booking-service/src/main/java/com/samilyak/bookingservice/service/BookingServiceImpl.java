@@ -125,7 +125,7 @@ public class BookingServiceImpl implements BookingService {
 
         } catch (RuntimeException ex) {
             if (savedBooking != null) {
-                compensationService.compensate(savedBooking, requestDto, token);
+                compensationService.compensate(savedBooking, requestDto);
             }
             throw ex;
         }
