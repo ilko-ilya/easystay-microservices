@@ -18,6 +18,11 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
     enabled: true
 
+service:
+  security:
+    username: payment-service
+    password: payment123
+
   datasource:
     url: jdbc:postgresql://postgres:5432/payment
     driver-class-name: org.postgresql.Driver

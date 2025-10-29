@@ -55,7 +55,6 @@ public class BookingServiceImpl implements BookingService {
     @Transactional
     public BookingResponseDto createBooking(BookingRequestDto requestDto, Authentication authentication) {
         Booking savedBooking = null;
-        String token = getTokenFromAuthentication(authentication);
         String email = authentication.getName();
 
         validateDates(requestDto);
