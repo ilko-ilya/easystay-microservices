@@ -16,6 +16,11 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
     enabled: true
+service:
+  security:
+    username: accommodation-service
+    password: accommodation123
+
   main:
     allow-bean-definition-overriding: true
   datasource:

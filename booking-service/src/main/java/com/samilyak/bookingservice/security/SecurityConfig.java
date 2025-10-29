@@ -18,6 +18,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ServiceAuthFilter serviceAuthFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -28,7 +29,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/bookings/**").authenticated()
                         .anyRequest().permitAll()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                //  Спочатку перевірка запиту між сервісами
+                .addFilterBefore(serviceAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                //  Потім JWT для користувачів
+                .addFilterBefore(jwtAuthenticationFilter, ServiceAuthFilter.class)
                 .build();
     }
 }

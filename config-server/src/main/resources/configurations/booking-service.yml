@@ -18,6 +18,11 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
     enabled: true
 
+service:
+  security:
+    username: booking-service
+    password: booking123
+
   main:
     allow-bean-definition-overriding: true
   datasource:
