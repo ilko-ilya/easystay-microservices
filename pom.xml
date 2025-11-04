@@ -27,6 +27,7 @@
 		<spring.boot.version>3.4.1</spring.boot.version>
 		<spring.cloud-version>2024.0.0</spring.cloud-version>
 		<mapstruct.version>1.5.5.Final</mapstruct.version>
+		<logstash.encoder.version>8.1</logstash.encoder.version>
 	</properties>
 
 	<dependencyManagement>
@@ -57,6 +58,12 @@
 				<version>${mapstruct.version}</version>
 				<scope>provided</scope>
 			</dependency>
+
+			<dependency>
+				<groupId>net.logstash.logback</groupId>
+				<artifactId>logstash-logback-encoder</artifactId>
+				<version>${logstash.encoder.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
@@ -65,6 +72,17 @@
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-tracing-bridge-brave</artifactId>
+		</dependency>
+
+		<!-- Zipkin exporter for Brave -->
+		<dependency>
+			<groupId>io.zipkin.reporter2</groupId>
+			<artifactId>zipkin-reporter-brave</artifactId>
 		</dependency>
 
 		<dependency>

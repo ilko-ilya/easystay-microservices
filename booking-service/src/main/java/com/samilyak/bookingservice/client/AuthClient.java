@@ -10,7 +10,7 @@ import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 @FeignClient(name = "auth-service", contextId = "authClient")
 public interface AuthClient {
 
-    @PostMapping("api/auth/validate")
+    @PostMapping("/api/auth/validate")
     boolean validateToken(@RequestHeader("Authorization") String token);
 
     @GetMapping("/api/auth/extract-username")

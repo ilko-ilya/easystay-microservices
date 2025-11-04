@@ -1,5 +1,6 @@
 package com.samilyak.bookingservice.client;
 
+import com.samilyak.bookingservice.config.FeignServiceAuthConfig;
 import com.samilyak.bookingservice.dto.accommodation.AccommodationLockRequest;
 import com.samilyak.bookingservice.dto.accommodation.AccommodationLockResponse;
 import com.samilyak.bookingservice.dto.accommodation.AccommodationDto;
@@ -9,14 +10,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
 
-import static org.springframework.http.HttpHeaders.AUTHORIZATION;
-
-@FeignClient(name = "accommodation-service")
+@FeignClient(name = "accommodation-service", configuration = FeignServiceAuthConfig.class)
 public interface AccommodationClient {
 
     @GetMapping("/api/accommodations/{id}")

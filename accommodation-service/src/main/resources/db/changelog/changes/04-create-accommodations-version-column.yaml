@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: add-version-column-to-accommodations
+      author: IlyaSamilyak
+      changes:
+        - addColumn:
+            tableName: accommodations
+            columns:
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false

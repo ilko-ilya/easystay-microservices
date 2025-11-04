@@ -18,14 +18,9 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
     enabled: true
 
-service:
-  security:
-    username: payment-service
-    password: payment123
-
   datasource:
-    url: jdbc:postgresql://postgres:5432/payment
     driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://postgres:5432/payment
     username: postgres
     password: Q12345w6
     hikari:
@@ -39,29 +34,36 @@ service:
     hibernate:
       ddl-auto: update
     database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         show_sql: true
+
+service:
+  security:
+    username: payment-service
+    password: payment123
+
+    trusted:
+      booking-service: booking123
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-    endpoint:
-      health:
-        show-details: always
+  endpoint:
+    health:
+      show-details: always
 
   tracing:
-    enabled: false
     sampling:
-      probability: 0.0
+      probability: 1.0
 
   zipkin:
     tracing:
-      enabled: false
+      endpoint: http://zipkin:9411/api/v2/spans
 
 logging:
   level:
@@ -69,5 +71,81 @@ logging:
     org.hibernate.SQL: DEBUG
 
 stripe:
-  secret-key: ${STRIPE_SECRET_KEY}
-  webhook-secret: whsec_test_stub_123456
+  secret-key: ${STRIPE_SECRET_KEY:sk_test_dummy_123}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_test_stub_123}
+
+
+#eureka:
+#  client:
+#    register-with-eureka: true
+#    fetch-registry: true
+#    service-url:
+#      defaultZone: http://localhost:8761/eureka/
+##      defaultZone: http://eureka-server:8761/eureka/
+#  instance:
+#    preferIpAddress: true
+#
+#server:
+#  port: 8085
+#
+#spring:
+#  application:
+#    name: payment-service
+#
+#  liquibase:
+#    change-log: classpath:db/changelog/db.changelog-master.yaml
+#    enabled: true
+#
+#service:
+#  security:
+#    username: payment-service
+#    password: payment123
+#
+#  datasource:
+#    url: jdbc:postgresql://postgres:5432/payment
+#    driver-class-name: org.postgresql.Driver
+#    username: postgres
+#    password: Q12345w6
+#    hikari:
+#      maximum-pool-size: 10
+#      minimum-idle: 2
+#      idle-timeout: 10000
+#      max-lifetime: 1800000
+#      connection-timeout: 20000
+#
+#  jpa:
+#    hibernate:
+#      ddl-auto: update
+#    database: postgresql
+#    properties:
+#      hibernate:
+#        dialect: org.hibernate.dialect.PostgreSQLDialect
+#        format_sql: true
+#        show_sql: true
+#
+#management:
+#  endpoints:
+#    web:
+#      exposure:
+#        include: health,info
+#    endpoint:
+#      health:
+#        show-details: always
+#
+##  tracing:
+##    enabled: false
+##    sampling:
+##      probability: 0.0
+##
+##  zipkin:
+##    tracing:
+##      enabled: false
+#
+#logging:
+#  level:
+#    org.springframework: INFO
+#    org.hibernate.SQL: DEBUG
+#
+#stripe:
+#  secret-key: ${STRIPE_SECRET_KEY}
+#  webhook-secret: whsec_test_stub_123456

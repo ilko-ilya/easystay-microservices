@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 
-@FeignClient(name = "payment-service")
+@FeignClient(name = "payment-service", path = "/api/payments")
 public interface PaymentClient {
 
     @PostMapping("/api/payments")
@@ -23,6 +23,6 @@ public interface PaymentClient {
     PaymentStatusDto getPaymentStatus(@PathVariable ("bookingId") Long bookingId);
 
     @DeleteMapping("/payments/{sessionId}")
-    void cancelPayment(@PathVariable String sessionId);
+    void cancelPayment(@PathVariable ("sessionId") String sessionId);
 
 }

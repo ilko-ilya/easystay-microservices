@@ -42,7 +42,7 @@ public class Accommodation {
     @ElementCollection
     @CollectionTable(name = "accommodations_amenities",
             joinColumns = @JoinColumn(name = "accommodation_id", referencedColumnName = "id"))
-    @Column(nullable = false)
+    @Column(name = "amenity", nullable = false)
     private List<String> amenities;
 
     @Column(nullable = false, name = "daily_rate")

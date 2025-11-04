@@ -3,6 +3,7 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
+#      defaultZone: http://localhost:8761/eureka/
       defaultZone: http://eureka-server:8761/eureka/
   instance:
     preferIpAddress: true
@@ -35,6 +36,15 @@ jwt:
   secret: "my-very-very-secret-key-should-be-long"
   expiration: 86400000
 
+service:
+  security:
+    trusted:
+      booking-service: booking123
+      accommodation-service: accommodation123
+      payment-service: payment123
+      notification-service: notification123
+
+
 management:
   endpoints:
     web:
@@ -45,11 +55,10 @@ management:
         show-details: always
 
   tracing:
-    enabled: false
     sampling:
-      probability: 0.0
+      probability: 1.0
 
   zipkin:
     tracing:
-      enabled: false
+      endpoint: http://zipkin:9411/api/v2/spans
 

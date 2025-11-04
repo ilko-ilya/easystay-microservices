@@ -1,6 +1,6 @@
 package com.samilyak.bookingservice.client;
 
-import com.samilyak.bookingservice.dto.client.notification.NotificationRequestDto;
+import com.samilyak.bookingservice.dto.notification.NotificationRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -9,6 +9,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface NotificationClient {
 
     @PostMapping("/send")
-    void sendNotification(@RequestBody NotificationRequestDto requestDto);
+    void sendNotification(@RequestBody NotificationRequest requestDto);
 
 }

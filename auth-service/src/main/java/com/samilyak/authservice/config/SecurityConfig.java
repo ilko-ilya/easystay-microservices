@@ -28,6 +28,7 @@ public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ServiceAuthFilter serviceAuthFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -55,16 +56,22 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/auth/**",
+                                "/api/auth/login",
+                                "/api/auth/register",
+                                "/api/auth/validate",
+                                "/api/auth/extract-username",
+                                "/api/auth/extract-role",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/api/addresses/**"
+                                "/v3/api-docs/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                //  Важно: сначала проверяем межсервисные Basic-запросы
+                .addFilterBefore(serviceAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                //  Потом — JWT для пользователей
+                .addFilterAfter(jwtAuthenticationFilter, ServiceAuthFilter.class)
                 .build();
     }
 }

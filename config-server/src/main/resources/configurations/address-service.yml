@@ -3,9 +3,11 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
+#      defaultZone: http://localhost:8761/eureka/
       defaultZone: http://eureka-server:8761/eureka/
   instance:
-    preferIpAddress: true  # Важно в контейнерной среде
+    preferIpAddress: true
+    hostname: localhost
 
 server:
   port: 8083
@@ -20,6 +22,8 @@ spring:
 
   datasource:
     driver-class-name: org.postgresql.Driver
+#    url: jdbc:postgresql://localhost:5432/address
+
     url: jdbc:postgresql://postgres:5432/address
     username: postgres
     password: Q12345w6
@@ -43,10 +47,9 @@ management:
         show-details: always
 
   tracing:
-    enabled: false
     sampling:
-      probability: 0.0
+      probability: 1.0
 
   zipkin:
     tracing:
-      enabled: false
+      endpoint: http://zipkin:9411/api/v2/spans

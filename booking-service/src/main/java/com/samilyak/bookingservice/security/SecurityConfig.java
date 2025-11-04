@@ -24,15 +24,16 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/bookings/**").authenticated()
                         .anyRequest().permitAll()
                 )
-                //  Спочатку перевірка запиту між сервісами
+                // 🔸 сначала проверка сервисов
                 .addFilterBefore(serviceAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                //  Потім JWT для користувачів
-                .addFilterBefore(jwtAuthenticationFilter, ServiceAuthFilter.class)
+                // 🔸 потом проверка JWT
+                .addFilterAfter(jwtAuthenticationFilter, ServiceAuthFilter.class)
                 .build();
     }
 }

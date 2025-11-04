@@ -70,7 +70,7 @@ public class AccommodationServiceImpl implements AccommodationService {
 
     @Transactional(readOnly = true)
     @Override
-    @Cacheable(value = "accommodations_list", key = "#pageable")
+//    @Cacheable(value = "accommodations_list", key = "#pageable")
     public List<AccommodationDto> getAll() {
         return accommodationRepository.findAll()
                 .stream()
@@ -80,7 +80,7 @@ public class AccommodationServiceImpl implements AccommodationService {
 
     @Transactional(readOnly = true)
     @Override
-    @Cacheable(value = "accommodations", key = "#city")
+//    @Cacheable(value = "accommodations", key = "#city")
     public List<AccommodationDto> getAccommodationsByCity(String city) {
         log.info("📌 Получаем адреса для города: {}", city);
         List<AddressResponseDto> addresses = addressClient.getAddressesByCity(city);
@@ -97,7 +97,7 @@ public class AccommodationServiceImpl implements AccommodationService {
 
     @Transactional(readOnly = true)
     @Override
-    @Cacheable(value = "accommodations", key = "#country")
+//    @Cacheable(value = "accommodations", key = "#country")
     public List<AccommodationDto> getAccommodationsByCountry(String country) {
         log.info("📌 Получаем адреса для страны: {}", country);
         List<AddressResponseDto> addresses = addressClient.getAddressesByCountry(country);
@@ -114,7 +114,7 @@ public class AccommodationServiceImpl implements AccommodationService {
 
     @Transactional(readOnly = true)
     @Override
-    @Cacheable(value = "accommodations", key = "#id")
+//    @Cacheable(value = "accommodations", key = "#id")
     public AccommodationDto getById(Long id) {
         Accommodation accommodation = accommodationRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Accommodation not found with id: " + id));
