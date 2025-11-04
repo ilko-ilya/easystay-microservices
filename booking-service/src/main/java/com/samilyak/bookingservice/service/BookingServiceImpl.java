@@ -12,11 +12,11 @@ import com.samilyak.bookingservice.dto.accommodation.AccommodationDto;
 import com.samilyak.bookingservice.dto.client.payment.PaymentRequestDto;
 import com.samilyak.bookingservice.dto.client.payment.PaymentResponseDto;
 import com.samilyak.bookingservice.dto.notification.NotificationDto;
+import com.samilyak.bookingservice.dto.notification.NotificationRequest;
 import com.samilyak.bookingservice.exception.AccessDeniedException;
 import com.samilyak.bookingservice.exception.AccommodationNotAvailableException;
 import com.samilyak.bookingservice.exception.EntityNotFoundException;
 import com.samilyak.bookingservice.mapper.BookingMapper;
-import com.samilyak.bookingservice.messaging.NotificationProducer;
 import com.samilyak.bookingservice.model.Booking;
 import com.samilyak.bookingservice.repository.BookingRepository;
 import feign.FeignException;
@@ -47,7 +47,7 @@ public class BookingServiceImpl implements BookingService {
     private final PaymentClient paymentClient;
     private final BookingMapper bookingMapper;
     private final UserClient userClient;
-    private final NotificationProducer notificationProducer;
+    private final NotificationClient notificationClient;
     private final BookingCompensationService compensationService;
 
     @Override
@@ -110,14 +110,16 @@ public class BookingServiceImpl implements BookingService {
             bookingRepository.save(savedBooking);
 
             // 7. 📩 Отправляем уведомление
-            notificationProducer.sendNotification(
-                    new NotificationDto(
-                            userId,
-                            requestDto.phoneNumber(),
-                            "Создана сессия оплаты для бронирования #" + savedBooking.getId() +
-                                    ". Пожалуйста, завершите оплату."
-                    ),
-                    List.of("telegram", "sms")
+            notificationClient.sendNotification(
+                    new NotificationRequest(
+                            new NotificationDto(
+                                    userId,
+                                    requestDto.phoneNumber(),
+                                    "Создана сессия оплаты для бронирования #" + savedBooking.getId() +
+                                            ". Пожалуйста, завершите оплату."
+                            ),
+                            List.of("telegram", "sms")
+                    )
             );
 
             return bookingMapper.toDto(savedBooking);

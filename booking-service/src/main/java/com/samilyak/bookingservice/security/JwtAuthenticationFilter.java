@@ -33,50 +33,45 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        log.info("🛠 Authorization Header: {}", authHeader);
 
+        // 🔸 1. Если запрос межсервисный (Basic) → пропускаем
+        if (authHeader != null && authHeader.startsWith("Basic ")) {
+            log.debug("🛡 Basic межсервисный запрос — JWT проверка не требуется");
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // 🔸 2. Если нет Bearer токена → 401
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.warn("❌ Токен не найден или имеет неверный формат!");
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.getWriter().write(
-                    "{\"error\": \"Forbidden\", \"message\": \"Missing or invalid Authorization header\"}");
+            log.warn("⚠️ Отсутствует Bearer токен");
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing Bearer token");
             return;
         }
 
         String token = authHeader.substring(7);
 
-        boolean isValid;
-        String username;
-        String role;
-
         try {
-            isValid = authClient.validateToken(token);
-            username = authClient.extractUsername(token);
-            role = authClient.extractUserRole(token);
+            // 💡 проверка токена через auth-service
+            boolean valid = authClient.validateToken("Bearer " + token);
+            if (!valid) {
+                throw new RuntimeException("Invalid token");
+            }
 
-            log.info("✅ Токен валиден: {}, Имя пользователя: {}, Роль: {}", isValid, username, role);
+            String username = authClient.extractUsername("Bearer " + token);
+            String role = authClient.extractUserRole("Bearer " + token);
+
+            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(username, null, authorities)
+            );
+
+            log.info("✅ JWT valid: user='{}', role='{}'", username, role);
+
         } catch (Exception e) {
-            log.error("❌ Ошибка валидации токена!", e);
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"Token validation failed\"}");
+            log.error("❌ Ошибка проверки токена", e);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token validation failed");
             return;
         }
-
-        if (!isValid || username == null || username.isEmpty() || role == null || role.isEmpty()) {
-            log.error("❌ Токен не прошел валидацию или отсутствует имя пользователя/роль!");
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write(
-                    "{\"error\": \"Unauthorized\", \"message\": \"Invalid token or missing username/role\"}");
-            return;
-        }
-
-        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
-
-        UsernamePasswordAuthenticationToken authentication =
-                new UsernamePasswordAuthenticationToken(username, null, authorities);
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        log.info("🔐 Установлен Authentication для пользователя {} с ролью {}", username, role);
 
         filterChain.doFilter(request, response);
     }

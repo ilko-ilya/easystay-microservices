@@ -138,7 +138,7 @@ services:
       eureka-server:
         condition: service_healthy
       config-server:
-        condition: service_started
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://eureka-server:8761/eureka/"
@@ -191,7 +191,7 @@ services:
       eureka-server:
         condition: service_healthy
       config-server:
-        condition: service_started
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking
@@ -222,7 +222,7 @@ services:
       eureka-server:
         condition: service_healthy
       config-server:
-        condition: service_started
+        condition: service_healthy
       address-service:
         condition: service_started
     environment:
@@ -233,7 +233,7 @@ services:
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://eureka-server:8761/eureka/"
-      EUREKA_INSTANCE_HOSTNAME: accommodation-service
+#      EUREKA_INSTANCE_HOSTNAME: accommodation-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
 
     networks:
@@ -254,7 +254,7 @@ services:
       eureka-server:
         condition: service_healthy
       config-server:
-        condition: service_started
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -279,17 +279,16 @@ services:
       eureka-server:
         condition: service_healthy
       config-server:
-        condition: service_started
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/address
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: Q12345w6
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://eureka-server:8761/eureka/"
-      EUREKA_INSTANCE_HOSTNAME: address-service
+#      EUREKA_INSTANCE_HOSTNAME: address-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
 
-    #      EUREKA_URI: http://eureka-server:8761/eureka
     networks:
       - booking-network
 
@@ -308,14 +307,56 @@ services:
       eureka-server:
         condition: service_healthy
       config-server:
-        condition: service_started
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      STRIPE_SECRET_KEY: sk_test_1234567890abcDEFghijk
+      STRIPE_WEBHOOK_SECRET: whsec_test_stub_123
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: Q12345w6
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     #      EUREKA_URI: http://eureka-server:8761/eureka
+    networks:
+      - booking-network
+
+  # ==========================
+  # Loki
+  # ==========================
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - booking-network
+
+  # ==========================
+  # Grafana (Визуализация логов)
+  # ==========================
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - loki
+    networks:
+      - booking-network
+
+  # ==========================
+  # Promtail (Сбор логов с контейнеров)
+  # ==========================
+  promtail:
+    image: grafana/promtail:2.9.4
+    container_name: promtail
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
     networks:
       - booking-network
 

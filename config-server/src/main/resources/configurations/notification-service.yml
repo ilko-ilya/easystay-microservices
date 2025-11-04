@@ -8,6 +8,15 @@ spring:
     username: guest
     password: guest
 
+service:
+  security:
+    username: notification-service
+    password: notification123
+
+    trusted:
+      booking-service: booking123
+      payment-service: payment123
+
 eureka:
   client:
     register-with-eureka: true
@@ -36,18 +45,4 @@ logging:
     com.netflix.eureka: DEBUG
     org.springframework.cloud: DEBUG
 
-
-
-
-  #  mail:
-#    host: smtp.gmail.com
-#    port: 587
-#    username: samilyak.ilya.test@gmail.com  # Замени на свой email
-#    password: 123Q456W  # Используй переменные окружения!
-#    properties:
- #     mail:
-#        smtp:
-#          auth: true
-#          starttls:
-#            enable: true
 

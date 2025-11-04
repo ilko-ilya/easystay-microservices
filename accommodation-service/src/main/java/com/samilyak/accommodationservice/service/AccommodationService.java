@@ -25,7 +25,7 @@ public interface AccommodationService {
 
     void deleteById(Long id);
 
-    // ✅ Новые методы для работы с доступностью
+    //  Новые методы для работы с доступностью
     boolean isAvailable(Long accommodationId, LocalDate checkIn, LocalDate checkOut);
 
     AccommodationLockResult lockDates(Long accommodationId, AccommodationLockCommand command);

@@ -35,29 +35,42 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String requestPath = request.getRequestURI();
         log.debug("🔍 Проверяем запрос: {}", requestPath);
 
-        String authHeader = request.getHeader("Authorization");
-        log.debug("🔑 Заголовок Authorization: {}", authHeader);
-
-        if (requestPath.equals("/api/auth/login") ||
-                requestPath.equals("/api/auth/register") ||
-                requestPath.equals("/api/auth/validate")) {
-            log.debug("✅ Пропускаем запрос без проверки: {}", requestPath);
+        // Пропускаем эндпоинты, которые не требуют проверки токена
+        if (requestPath.startsWith("/api/auth/login")
+                || requestPath.startsWith("/api/auth/register")
+                || requestPath.startsWith("/api/auth/validate")
+                || requestPath.startsWith("/api/auth/extract-username")
+                || requestPath.startsWith("/api/auth/extract-role")) {
+            log.debug("✅ Пропускаем без JWT-проверки: {}", requestPath);
             filterChain.doFilter(request, response);
             return;
         }
 
+        // Проверяем наличие токена
         String token = getToken(request);
-        if (token != null && jwtUtil.isValidToken(token)) {
+        if (token == null) {
+            log.warn("❌ Нет токена в запросе");
+            filterChain.doFilter(request, response);
+            return;
+        }
 
+        // Проверяем валидность токена
+        if (jwtUtil.isValidToken(token)) {
             String userName = jwtUtil.getUserName(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(userName);
+
             Authentication authentication = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            log.debug("✅ Аутентификация успешна: {}", userName);
+        } else {
+            log.warn("❌ Невалидный токен");
         }
 
         filterChain.doFilter(request, response);
     }
+
 
     private String getToken(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
