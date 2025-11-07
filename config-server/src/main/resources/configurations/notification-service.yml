@@ -8,15 +8,6 @@ spring:
     username: guest
     password: guest
 
-service:
-  security:
-    username: notification-service
-    password: notification123
-
-    trusted:
-      booking-service: booking123
-      payment-service: payment123
-
 eureka:
   client:
     register-with-eureka: true
@@ -39,10 +30,3 @@ telegram:
   bot-username: booking_easy_stay_bot
   bot-token: 8126386454:AAFEdnT1w1OC1pyYJgL213T7vSj-c2PWs
   chat-id: 589113001
-
-logging:
-  level:
-    com.netflix.eureka: DEBUG
-    org.springframework.cloud: DEBUG
-
-

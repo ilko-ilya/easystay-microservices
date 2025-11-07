@@ -47,14 +47,6 @@ spring:
 #  cache:
 #    type: redis
 
-service:
-  security:
-    username: accommodation-service
-    password: accommodation123
-    trusted:
-      booking-service: booking123
-
-
 management:
   endpoints:
     web:

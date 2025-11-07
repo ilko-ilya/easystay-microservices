@@ -6,12 +6,13 @@
                 <pattern>
                     <pattern>
                         {
+                        "time": "%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}",
+                        "traceId": "%X{traceId:-}",
+                        "spanId": "%X{spanId:-}",
                         "level": "%level",
                         "logger": "%logger",
                         "thread": "%thread",
-                        "message": "%msg",
-                        "traceId": "%X{traceId:-}",
-                        "spanId": "%X{spanId:-}"
+                        "message": "%msg"
                         }
                     </pattern>
                 </pattern>
