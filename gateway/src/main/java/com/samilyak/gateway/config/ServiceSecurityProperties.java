@@ -1,4 +1,4 @@
-package com.samilyak.accommodationservice.config;
+package com.samilyak.gateway.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -10,9 +10,5 @@ import java.util.Map;
 @Configuration
 @ConfigurationProperties(prefix = "service.security")
 public class ServiceSecurityProperties {
-
-    private String username;
-    private String password;
     private Map<String, String> trusted;
-
 }

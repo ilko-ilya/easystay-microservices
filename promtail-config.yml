@@ -1,6 +1,7 @@
 server:
   http_listen_port: 9080
   grpc_listen_port: 0
+  log_level: info
 
 positions:
   filename: /tmp/positions.yaml
@@ -9,15 +10,52 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: docker
-    docker_sd_configs:
-      - host: unix:///var/run/docker.sock
-        refresh_interval: 5s
-    relabel_configs:
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/(.*)'
-        target_label: 'container'
-      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
-        target_label: 'service'
-      - source_labels: ['__meta_docker_container_log_stream']
-        target_label: 'stream'
+  - job_name: docker-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker
+          __path__: /var/lib/docker/containers/*/*-json.log
+
+    pipeline_stages:
+      # 1️ Парсим JSON от Docker
+      - json:
+          expressions:
+            output: log
+            stream: stream
+            attrs: attrs
+
+      # 2️ Извлекаем "tag"
+      - json:
+          expressions:
+            tag: attrs.tag
+          source: attrs
+
+      # 3️ Имя контейнера
+      - regex:
+          expression: (?P<container_name>(?:[^|]*[^|]))
+          source: tag
+
+      # 4️ Лейблы
+      - labels:
+          container_name:
+          stream:
+
+      # 5️ Убираем экранирование кавычек из вложенного JSON
+      - replace:
+          expression: "\\\\"
+          replace: ""
+
+      # 6️ Извлекаем уровень логов и сообщение
+      - regex:
+          expression: 'level.?=.?\"?(?P<level>[A-Z]+)\"?.*message.?=.?\"?(?P<message>[^"]*)'
+          source: log
+
+      # 7️ Лейбл для уровня
+      - labels:
+          level:
+
+      # 8️ Только сообщение в вывод
+      - output:
+          source: message

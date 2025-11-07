@@ -48,11 +48,6 @@ spring:
   cache:
     type: redis
 
-service:
-  security:
-    username: booking-service
-    password: booking123
-
 management:
   endpoints:
     web:

@@ -40,14 +40,6 @@ spring:
         format_sql: true
         show_sql: true
 
-service:
-  security:
-    username: payment-service
-    password: payment123
-
-    trusted:
-      booking-service: booking123
-
 management:
   endpoints:
     web:
@@ -64,11 +56,6 @@ management:
   zipkin:
     tracing:
       endpoint: http://zipkin:9411/api/v2/spans
-
-logging:
-  level:
-    org.springframework: INFO
-    org.hibernate.SQL: DEBUG
 
 stripe:
   secret-key: ${STRIPE_SECRET_KEY:sk_test_dummy_123}

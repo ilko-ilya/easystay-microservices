@@ -3,7 +3,6 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-#      defaultZone: http://localhost:8761/eureka/
       defaultZone: http://eureka-server:8761/eureka/
   instance:
     preferIpAddress: true
@@ -35,15 +34,6 @@ spring:
 jwt:
   secret: "my-very-very-secret-key-should-be-long"
   expiration: 86400000
-
-service:
-  security:
-    trusted:
-      booking-service: booking123
-      accommodation-service: accommodation123
-      payment-service: payment123
-      notification-service: notification123
-
 
 management:
   endpoints:

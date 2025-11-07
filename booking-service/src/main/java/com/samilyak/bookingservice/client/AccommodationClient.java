@@ -1,6 +1,5 @@
 package com.samilyak.bookingservice.client;
 
-import com.samilyak.bookingservice.config.FeignServiceAuthConfig;
 import com.samilyak.bookingservice.dto.accommodation.AccommodationLockRequest;
 import com.samilyak.bookingservice.dto.accommodation.AccommodationLockResponse;
 import com.samilyak.bookingservice.dto.accommodation.AccommodationDto;
@@ -14,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
 
-@FeignClient(name = "accommodation-service", configuration = FeignServiceAuthConfig.class)
+@FeignClient(name = "accommodation-service")
 public interface AccommodationClient {
 
     @GetMapping("/api/accommodations/{id}")
