@@ -14,7 +14,9 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     List<Payment> findByStatus(Payment.Status status);
 
-    Collection<Object> findPaymentsByUserId(Long userId);
+    List<Payment> findAllByUserId(Long userId);
 
     Optional<Payment> findBySessionId(String sessionId);
+
+
 }

@@ -9,11 +9,12 @@ import com.samilyak.accommodationservice.dto.AccommodationUpdateDto;
 import com.samilyak.accommodationservice.dto.AddressResponseDto;
 import com.samilyak.accommodationservice.mapper.AccommodationMapper;
 import com.samilyak.accommodationservice.model.Accommodation;
+import com.samilyak.accommodationservice.model.AvailabilitySlot;
 import com.samilyak.accommodationservice.repository.AccommodationRepository;
+import com.samilyak.accommodationservice.repository.AvailabilitySlotRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,27 +30,31 @@ public class AccommodationServiceImpl implements AccommodationService {
     private final AccommodationMapper accommodationMapper;
     private final AddressClient addressClient;
     private final AccommodationAvailabilityService availabilityService;
+    private final AvailabilitySlotRepository slotRepository;
 
     @Transactional
     @Override
     public AccommodationDto create(AccommodationRequestDto requestDto) {
-        AddressResponseDto savedAddress = addressClient.createAddress(requestDto.location());
+        log.info("🏠 Создание нового жилья: {}", requestDto);
 
+        AddressResponseDto savedAddress = addressClient.createAddress(requestDto.location());
         Accommodation accommodation = accommodationMapper.toModel(requestDto);
         accommodation.setAddressId(savedAddress.id());
         accommodation.setVersion(0L);
 
         Accommodation savedAccommodation = accommodationRepository.save(accommodation);
 
-        availabilityService.initializeAvailabilitySlots(savedAccommodation.getId(),
-                requestDto.availability() != null ? requestDto.availability() : 1);
+        int daysToInitialize = requestDto.availability() != null ? requestDto.availability() : 365;
+        availabilityService.initializeAvailabilitySlots(savedAccommodation.getId(), daysToInitialize);
 
+        log.info("✅ Жильё ID={} успешно создано по адресу ID={}", savedAccommodation.getId(), savedAddress.id());
         return mapToDto(savedAccommodation);
     }
 
     @Transactional
     @Override
     public AccommodationDto update(Long id, AccommodationUpdateDto updateDto) {
+        log.info("✏️ Обновление жилья ID={} данными {}", id, updateDto);
         Accommodation accommodation = accommodationRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Accommodation not found with id: " + id));
 
@@ -65,6 +70,8 @@ public class AccommodationServiceImpl implements AccommodationService {
         }
 
         Accommodation updatedAccommodation = accommodationRepository.save(accommodation);
+
+        log.info("✏️ Обновление жилья ID={} данными {}", id, updateDto);
         return mapToDto(updatedAccommodation);
     }
 
@@ -72,6 +79,7 @@ public class AccommodationServiceImpl implements AccommodationService {
     @Override
 //    @Cacheable(value = "accommodations_list", key = "#pageable")
     public List<AccommodationDto> getAll() {
+        log.info("📋 Получение всех доступных вариантов жилья");
         return accommodationRepository.findAll()
                 .stream()
                 .map(this::mapToDto)
@@ -84,9 +92,11 @@ public class AccommodationServiceImpl implements AccommodationService {
     public List<AccommodationDto> getAccommodationsByCity(String city) {
         log.info("📌 Получаем адреса для города: {}", city);
         List<AddressResponseDto> addresses = addressClient.getAddressesByCity(city);
+
         List<Long> addressIds = addresses.stream()
                 .map(AddressResponseDto::id)
                 .toList();
+
         log.info("📌 Найденные ID адресов по городу: {}", addressIds);
 
         return accommodationRepository.findByAddressIdIn(addressIds)
@@ -101,11 +111,12 @@ public class AccommodationServiceImpl implements AccommodationService {
     public List<AccommodationDto> getAccommodationsByCountry(String country) {
         log.info("📌 Получаем адреса для страны: {}", country);
         List<AddressResponseDto> addresses = addressClient.getAddressesByCountry(country);
+
         List<Long> addressIds = addresses.stream()
                 .map(AddressResponseDto::id)
                 .toList();
-        log.info("📌 Найденные ID адресов по стране: {}", addressIds);
 
+        log.info("📌 Найдено {} адресов в стране {}", addressIds.size(), country);
         return accommodationRepository.findByAddressIdIn(addressIds)
                 .stream()
                 .map(this::mapToDto)
@@ -116,6 +127,7 @@ public class AccommodationServiceImpl implements AccommodationService {
     @Override
 //    @Cacheable(value = "accommodations", key = "#id")
     public AccommodationDto getById(Long id) {
+        log.info("🔍 Получение жилья по ID={}", id);
         Accommodation accommodation = accommodationRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Accommodation not found with id: " + id));
 
@@ -124,48 +136,72 @@ public class AccommodationServiceImpl implements AccommodationService {
 
     @Override
     public void deleteById(Long id) {
+        log.info("🗑 Удаление жилья ID={}", id);
+
+        if (!accommodationRepository.existsById(id)) {
+            throw new EntityNotFoundException("Accommodation not found with id: " + id);
+        }
         accommodationRepository.deleteById(id);
+        log.info("✅ Жильё ID={} успешно удалено", id);
     }
 
     @Override
     @Transactional(readOnly = true)
+    public List<LocalDate> getLockedDates(Long accommodationId) {
+        return slotRepository.findByAccommodationIdAndLockedTrue(accommodationId)
+                .stream()
+                .map(AvailabilitySlot::getDate)
+                .toList();
+    }
+
+
+    @Override
+    @Transactional
     public boolean isAvailable(Long accommodationId, LocalDate checkIn, LocalDate checkOut) {
+        log.info("📅 Проверка доступности жилья {} с {} по {}", accommodationId, checkIn, checkOut);
         return availabilityService.areDatesAvailable(accommodationId, checkIn, checkOut);
     }
 
     @Transactional
     @Override
     public AccommodationLockResult lockDates(Long accommodationId, AccommodationLockCommand command) {
+        LocalDate checkIn = command.checkInDate();
+        LocalDate checkOut = command.checkOutDate();
+        LocalDate lastNight = checkOut.minusDays(1);
+
+        log.info("🔒 Попытка заблокировать даты для жилья {}: {} - {} (lastNight={}, версия {})",
+                accommodationId, checkIn, checkOut, lastNight, command.expectedVersion());
+
         Accommodation accommodation = accommodationRepository.findById(accommodationId)
-                .orElseThrow(() -> new EntityNotFoundException("Жилье не найдено с id: " + accommodationId));
+                .orElseThrow(() -> new EntityNotFoundException("Жильё не найдено с id: " + accommodationId));
 
         if (!accommodation.getVersion().equals(command.expectedVersion())) {
-            log.warn("Версия устарела для жилья {}. Ожидалось: {}, актуальная: {}",
+            log.warn("⚠️ Версия устарела для жилья {}. Ожидалось: {}, актуальная: {}",
                     accommodationId, command.expectedVersion(), accommodation.getVersion());
             return new AccommodationLockResult(false, "Данные устарели. Обновите страницу", null);
         }
 
-        if (!availabilityService.areDatesAvailable(accommodationId, command.checkInDate(), command.checkOutDate())) {
-            log.warn("Даты уже заняты для жилья {}: с {} по {}",
-                    accommodationId, command.checkInDate(), command.checkOutDate());
+        // ✅ Проверяем только ночи [checkIn .. checkOut-1]
+        if (!availabilityService.areDatesAvailable(accommodationId, checkIn, lastNight)) {
+            log.warn("⚠️ Даты уже заняты для жилья {}: с {} по {}", accommodationId, checkIn, lastNight);
             return new AccommodationLockResult(false, "Даты уже заняты", null);
         }
 
         try {
-            availabilityService.lockDates(accommodationId, command.checkInDate(), command.checkOutDate());
+            // ✅ Блокируем только ночи [checkIn .. checkOut-1]
+            availabilityService.lockDates(accommodationId, checkIn, lastNight);
             accommodation.setVersion(accommodation.getVersion() + 1);
             accommodationRepository.save(accommodation);
 
-            log.info("Даты заблокированы для жилья {}: с {} по {}",
-                    accommodationId, command.checkInDate(), command.checkOutDate());
-
+            log.info("✅ Даты заблокированы для жилья {}: с {} по {}", accommodationId, checkIn, lastNight);
             return new AccommodationLockResult(true, "Даты заблокированы", accommodation.getDailyRate());
 
         } catch (Exception e) {
-            log.error("Ошибка при блокировке дат для жилья {}: {}", accommodationId, e.getMessage());
+            log.error("❌ Ошибка при блокировке дат для жилья {}: {}", accommodationId, e.getMessage());
             return new AccommodationLockResult(false, "Ошибка при блокировке дат: " + e.getMessage(), null);
         }
     }
+
 
     @Transactional
     @Override
@@ -181,7 +217,6 @@ public class AccommodationServiceImpl implements AccommodationService {
 
     private AccommodationDto mapToDto(Accommodation accommodation) {
         AddressResponseDto address = addressClient.getAddressById(accommodation.getAddressId());
-
         return new AccommodationDto(
                 accommodation.getId(),
                 accommodation.getType().name(),

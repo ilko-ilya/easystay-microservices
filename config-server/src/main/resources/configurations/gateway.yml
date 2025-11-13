@@ -16,6 +16,7 @@ service:
       booking-service: ${BOOKING_PASSWORD}
       payment-service: ${PAYMENT_PASSWORD}
       notification-service: ${NOTIFY_PASSWORD}
+      address-service: ${ADDRESS_PASSWORD}
 
 
 spring:
@@ -30,7 +31,7 @@ spring:
     gateway:
       discovery:
         locator:
-          enabled: false
+          enabled: true
           lower-case-service-id: true
       globalcors:
         corsConfigurations:
@@ -97,3 +98,10 @@ management:
   zipkin:
     tracing:
       endpoint: http://zipkin:9411/api/v2/spans
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG
+    org.springframework.web: INFO
+

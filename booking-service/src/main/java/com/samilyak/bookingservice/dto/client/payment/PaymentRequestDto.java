@@ -6,7 +6,8 @@ public record PaymentRequestDto(
 
         Long bookingId,
         BigDecimal amountToPay,
-        String phoneNumber
+        String phoneNumber,
+        Long userId
 
 ) {
 }

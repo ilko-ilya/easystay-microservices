@@ -3,7 +3,6 @@ package com.samilyak.bookingservice.service;
 import com.samilyak.bookingservice.client.AccommodationClient;
 import com.samilyak.bookingservice.client.NotificationClient;
 import com.samilyak.bookingservice.client.PaymentClient;
-import com.samilyak.bookingservice.client.UserClient;
 import com.samilyak.bookingservice.dto.accommodation.AccommodationLockRequest;
 import com.samilyak.bookingservice.dto.accommodation.AccommodationLockResponse;
 import com.samilyak.bookingservice.dto.booking.BookingRequestDto;
@@ -19,18 +18,12 @@ import com.samilyak.bookingservice.exception.EntityNotFoundException;
 import com.samilyak.bookingservice.mapper.BookingMapper;
 import com.samilyak.bookingservice.model.Booking;
 import com.samilyak.bookingservice.repository.BookingRepository;
-import feign.FeignException;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.http.HttpHeaders;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,74 +39,85 @@ public class BookingServiceImpl implements BookingService {
     private final AccommodationClient accommodationClient;
     private final PaymentClient paymentClient;
     private final BookingMapper bookingMapper;
-    private final UserClient userClient;
     private final NotificationClient notificationClient;
     private final BookingCompensationService compensationService;
 
     @Override
-    @CacheEvict(value = {"userBookings"}, key = "#authentication.name")
+    @CacheEvict(value = {"userBookings"}, key = "#userId")
     @Transactional
-    public BookingResponseDto createBooking(BookingRequestDto requestDto, Authentication authentication) {
-        Booking savedBooking = null;
-        String email = authentication.getName();
+    public BookingResponseDto createBooking(BookingRequestDto requestDto, String userId, String role) {
 
         validateDates(requestDto);
 
-        Long userId = userClient.getUserIdByEmail(email);
-        if (userId == null) {
-            throw new IllegalStateException("Не удалось получить userId для email: " + email);
-        }
+        Booking savedBooking = null;
+        boolean datesLocked = false;
 
         try {
-            // 1. 📌 Получаем жильё
+            //  Проверяем, что жильё существует
             AccommodationDto accommodation = accommodationClient.getAccommodationById(
                     requestDto.accommodationId()
             );
 
-            // 2. 🔒 Блокируем даты
+            //  Проверяем, что даты свободны (в accommodation-service)
+            boolean isAvailable = accommodationClient.isAccommodationAvailable(
+                    requestDto.accommodationId(),
+                    requestDto.checkInDate(),
+                    requestDto.checkOutDate()
+            );
+            if (!isAvailable) {
+                throw new AccommodationNotAvailableException("Даты уже заняты");
+            }
+
+            //  Рассчитываем стоимость
+            long days = ChronoUnit.DAYS.between(requestDto.checkInDate(), requestDto.checkOutDate());
+            BigDecimal dailyRate = accommodation.dailyRate();
+            BigDecimal totalPrice = dailyRate.multiply(BigDecimal.valueOf(days));
+
+            //  Создаем бронь PENDING
+            Long userIdLong = null;
+            try {
+                userIdLong = Long.valueOf(userId);
+            } catch (NumberFormatException e) {
+                log.warn("UserId '{}' is not numeric — using null instead", userId);
+            }
+
+            savedBooking = savePendingBooking(requestDto, userIdLong, totalPrice);
+
+            //  Только теперь блокируем даты
             AccommodationLockResponse lockResponse = accommodationClient.lockDates(
                     requestDto.accommodationId(),
                     new AccommodationLockRequest(
-                            requestDto.accommodationId(),
                             requestDto.checkInDate(),
                             requestDto.checkOutDate(),
                             accommodation.version()
-                    )
+                    ),
+                    userId
             );
-
             if (!lockResponse.success()) {
                 throw new AccommodationNotAvailableException(lockResponse.message());
             }
+            datesLocked = true;
 
-            // 3. 💰 Рассчитываем стоимость
-            long days = ChronoUnit.DAYS.between(requestDto.checkInDate(), requestDto.checkOutDate());
-            BigDecimal dailyRate = lockResponse.dailyRate() != null
-                    ? lockResponse.dailyRate()
-                    : accommodation.dailyRate();
-            BigDecimal totalPrice = dailyRate.multiply(BigDecimal.valueOf(days));
-
-            // 4. 📝 Создаем бронь PENDING
-            savedBooking = savePendingBooking(requestDto, userId, totalPrice);
-
-            // 5. 💳 Создаем платёж
+            //  Создаем платёж
             PaymentResponseDto paymentResponse = paymentClient.createPayment(
                     new PaymentRequestDto(
                             savedBooking.getId(),
                             savedBooking.getTotalPrice(),
-                            savedBooking.getPhoneNumber()
+                            savedBooking.getPhoneNumber(),
+                            Long.valueOf(userId)
                     )
             );
 
-            // 6. ✅ Подтверждаем бронь
+            //  Подтверждаем бронь
             savedBooking.setPaymentId(paymentResponse.sessionId());
             savedBooking.setStatus(Booking.Status.CONFIRMED);
             bookingRepository.save(savedBooking);
 
-            // 7. 📩 Отправляем уведомление
+            //  Отправляем уведомление
             notificationClient.sendNotification(
                     new NotificationRequest(
                             new NotificationDto(
-                                    userId,
+                                    userIdLong,
                                     requestDto.phoneNumber(),
                                     "Создана сессия оплаты для бронирования #" + savedBooking.getId() +
                                             ". Пожалуйста, завершите оплату."
@@ -125,31 +129,50 @@ public class BookingServiceImpl implements BookingService {
             return bookingMapper.toDto(savedBooking);
 
         } catch (RuntimeException ex) {
+            //  При любой ошибке — откатываем и разблокируем даты
             if (savedBooking != null) {
+                log.warn("↩️ Компенсация брони {}", savedBooking.getId());
                 compensationService.compensate(savedBooking, requestDto);
             }
+
+            // 2. Если бронь НЕ создана, но даты заблокированы → Unlock вручную
+            else if (datesLocked) {
+                try {
+                    accommodationClient.unlockDates(
+                            requestDto.accommodationId(),
+                            new AccommodationLockRequest(
+                                    requestDto.checkInDate(),
+                                    requestDto.checkOutDate(),
+                                    null
+                            ),
+                            userId
+                    );
+                    log.info("🔓 Даты разблокированы после ошибки");
+                } catch (Exception unlockEx) {
+                    log.error("⚠️ Ошибка при разблокировке дат: {}", unlockEx.getMessage());
+                }
+            }
+
             throw ex;
         }
     }
 
-    @Cacheable(value = "userBookings", key = "#authentication.name", unless = "#result.size() == 0")
+
+    @Cacheable(value = "userBookings", key = "#userId", unless = "#result.size() == 0")
     @Override
-    public List<BookingResponseDto> getUserBookings(Authentication authentication) {
-        Long userId = getUserIdFromAuthentication(authentication);
-        return bookingRepository.findAllByUserId(userId)
+    public List<BookingResponseDto> getUserBookings(String userId) {
+        return bookingRepository.findAllByUserId(Long.valueOf(userId))
                 .stream()
                 .map(bookingMapper::toDto)
                 .toList();
     }
 
-    @Cacheable(value = "booking", key = "#id + ':' + #authentication.name")
+    @Cacheable(value = "booking", key = "#id + ':' + #userId")
     @Override
-    public BookingResponseDto getBookingById(Long id, Authentication authentication) {
+    public BookingResponseDto getBookingById(Long id, String userId, String role) {
         Booking booking = getBookingById(id);
 
-        Long userId = getUserIdFromAuthentication(authentication);
-
-        if (!booking.getUserId().equals(userId)) {
+        if (!booking.getUserId().equals(Long.valueOf(userId)) && !"MANAGER".equals(role)) {
             throw new AccessDeniedException("You are not authorized to view this booking.");
         }
         return bookingMapper.toDto(booking);
@@ -158,16 +181,19 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     @Override
     public Long getUserIdByBookingId(Long bookingId) {
-        log.info("📌 Запрос на получение userId для bookingId = {}", bookingId);
+        log.info("📌 Request for receipt userId for bookingId = {}", bookingId);
         Booking booking = getBookingById(bookingId);
         Long userId = booking.getUserId();
-        log.info("✅ Найден userId: {}", userId);
+        log.info("✅ Found userId: {}", userId);
         return userId;
     }
 
-    @CacheEvict(value = {"userBookings"}, key = "#authentication.name")
+    @CacheEvict(value = {"userBookings"}, key = "#role")
     @Override
-    public void deleteBookingById(Long id) {
+    public void deleteBookingById(Long id, String role) {
+        if (!"MANAGER".equals(role)) {
+            throw new AccessDeniedException("Only MANAGER can delete bookings.");
+        }
         Booking booking = getBookingById(id);
         bookingRepository.delete(booking);
     }
@@ -181,34 +207,10 @@ public class BookingServiceImpl implements BookingService {
     private void validateDates(BookingRequestDto requestDto) {
         if (requestDto.checkInDate().isAfter(requestDto.checkOutDate()) ||
                 requestDto.checkInDate().isEqual(requestDto.checkOutDate())) {
-            throw new IllegalArgumentException("Некорректные даты бронирования");
+            throw new IllegalArgumentException("Incorrect booking dates");
         }
         if (requestDto.checkInDate().isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("Дата заезда не может быть в прошлом");
-        }
-    }
-
-    private String getTokenFromAuthentication(Authentication authentication) {
-        if (authentication.getCredentials() != null) {
-            return authentication.getCredentials().toString();
-        } else {
-            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes())
-                    .getRequest();
-            String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-            return authHeader != null ? authHeader.replace("Bearer ", "") : null;
-        }
-    }
-
-    private Long getUserIdFromAuthentication(Authentication authentication) {
-        String email = authentication.getName();
-        log.info("🔍 Запрашиваем userId для email: {}", email);
-
-        try {
-            return userClient.getUserIdByEmail(email);
-        } catch (FeignException.NotFound e) {
-            throw new EntityNotFoundException("User not found with email: " + email);
-        } catch (FeignException e) {
-            throw new RuntimeException("Error while fetching user ID from auth-service", e);
+            throw new IllegalArgumentException("The arrival date cannot be in the past");
         }
     }
 
@@ -229,4 +231,3 @@ public class BookingServiceImpl implements BookingService {
         return bookingRepository.save(booking);
     }
 }
-
