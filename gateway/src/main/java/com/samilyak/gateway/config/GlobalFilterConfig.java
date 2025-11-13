@@ -12,11 +12,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
+
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 
 @Slf4j
 @Configuration
@@ -30,20 +33,58 @@ public class GlobalFilterConfig {
     }
 
     @Bean
-    public GlobalFilter customFilter() {
+    public GlobalFilter userInfoFilter() {
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
+            String path = request.getPath().value();
 
-            request.getHeaders().forEach((key, value) -> log.info("🛠 Gateway получил заголовок: {} = {}", key, value));
+            log.info("📍 Gateway: {} {}", request.getMethod(), path);
 
-            if (request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-                String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-                log.info("✅ Gateway передаёт заголовок Authorization: {}", authHeader);
-            } else {
-                log.warn("❌ В запросе нет заголовка Authorization!");
+            // Пропускаем публичные эндпоинты без изменений
+            if (isPublicPath(path)) {
+                log.info("✅ Публичный путь, пропускаем");
+                return chain.filter(exchange);
             }
 
-            return chain.filter(exchange);
+            // Для защищённых путей - добавляем информацию о пользователе
+
+            String authHeader = request.getHeaders().getFirst(AUTHORIZATION);
+            log.info("🧩 Authorization header получен: {}", authHeader);
+
+            return exchange.getPrincipal()
+                    .flatMap(principal -> {
+                        log.info("🔑 Principal класс: {}", principal.getClass().getName());
+
+                        if (principal instanceof JwtAuthenticationToken jwtToken) {
+                            Jwt jwt = jwtToken.getToken();
+
+                            String email = jwt.getSubject();
+                            String userId = jwt.getClaimAsString("userId");
+                            String role = jwt.getClaimAsString("role");
+
+                            log.info("✅ Пользователь: userId={}, email={}, role={}", userId, email, role);
+
+                            // Создаём новый request с данными пользователя
+                            ServerHttpRequest modifiedRequest = exchange.getRequest().mutate()
+                                    .header("X-User-Id", userId != null ? userId : "")
+                                    .header("X-User-Role", role != null ? role : "")
+                                    .header("X-User-Email", email != null ? email : "")
+                                    .build();
+
+                            log.info("✅ Передаём на сервис с заголовками пользователя");
+
+                            return chain.filter(exchange.mutate().request(modifiedRequest).build());
+                        }
+
+                        log.warn("⚠️ Principal не JWT, пропускаем");
+                        return chain.filter(exchange);
+                    })
+                    .switchIfEmpty(Mono.defer(() -> {
+                        if (!isPublicPath(request.getPath().value())) {
+                            log.debug("ℹ️ Второй проход фильтра без Principal — пропускаем (внутренний вызов)");
+                        }
+                        return chain.filter(exchange);
+                    }));
         };
     }
 
@@ -62,19 +103,11 @@ public class GlobalFilterConfig {
                 });
     }
 
-    @Bean
-    public GlobalFilter traceIdFilter() {
-        return (exchange, chain) -> {
-            String traceId = UUID.randomUUID().toString();
-            exchange = exchange.mutate()
-                    .request(exchange.getRequest().mutate()
-                            .header("X-Trace-Id", traceId)
-                            .build())
-                    .build();
-
-            log.info("Gateway добавил traceId: {}", traceId);
-            return chain.filter(exchange);
-        };
+    //  Checks whether the path is public
+    private boolean isPublicPath(String path) {
+        return path.startsWith("/api/auth/") ||
+                path.startsWith("/swagger-ui") ||
+                path.startsWith("/v3/api-docs") ||
+                path.startsWith("/actuator");
     }
 }
-

@@ -4,6 +4,7 @@ import com.samilyak.accommodationservice.model.AvailabilitySlot;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 public interface AvailabilitySlotRepository extends JpaRepository<AvailabilitySlot, Long> {
@@ -16,4 +17,5 @@ public interface AvailabilitySlotRepository extends JpaRepository<AvailabilitySl
 
     void deleteByAccommodationId(Long accommodationId);
 
+    List<AvailabilitySlot> findByAccommodationIdAndLockedTrue(Long accommodationId);
 }

@@ -41,11 +41,11 @@ public class BookingCompensationService {
                 accommodationClient.unlockDates(
                         dto.accommodationId(),
                         new AccommodationLockRequest(
-                                dto.accommodationId(),
                                 dto.checkInDate(),
                                 dto.checkOutDate(),
                                 null
                         )
+                        , booking.getUserId().toString()
                 );
                 log.info("✅ Даты разблокированы для accommodation {}", dto.accommodationId());
             } catch (Exception unlockEx) {

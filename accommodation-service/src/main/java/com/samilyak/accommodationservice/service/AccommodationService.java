@@ -32,4 +32,6 @@ public interface AccommodationService {
 
     void unlockDates(Long accommodationId, AccommodationLockCommand command);
 
+    List<LocalDate> getLockedDates(Long accommodationId);
+
 }

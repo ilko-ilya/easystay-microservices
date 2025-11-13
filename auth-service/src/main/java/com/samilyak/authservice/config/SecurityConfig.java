@@ -18,8 +18,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import static org.springframework.http.HttpMethod.GET;
-
 @EnableWebSecurity
 @EnableMethodSecurity
 @Configuration
@@ -28,7 +26,6 @@ public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final ServiceAuthFilter serviceAuthFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -68,10 +65,7 @@ public class SecurityConfig {
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
-                //  Важно: сначала проверяем межсервисные Basic-запросы
-                .addFilterBefore(serviceAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                //  Потом — JWT для пользователей
-                .addFilterAfter(jwtAuthenticationFilter, ServiceAuthFilter.class)
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 }

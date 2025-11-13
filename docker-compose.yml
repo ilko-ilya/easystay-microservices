@@ -401,7 +401,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      STRIPE_SECRET_KEY: sk_test_1234567890abcDEFghijk
+      STRIPE_SECRET_KEY: sk_test_51OYCr5CveEz9u1BEKxFrSC875hw1Lap28IGYUjOk3smPvnnkKs1HRBaKFRqjooeWRXknwkicKTJlVtdGMhnF8uEF00NHaA2wrY
       STRIPE_WEBHOOK_SECRET: whsec_test_stub_123
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment
       SPRING_DATASOURCE_USERNAME: postgres

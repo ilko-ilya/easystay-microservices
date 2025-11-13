@@ -1,9 +1,9 @@
 package com.samilyak.paymentservice.service;
 
-import com.samilyak.paymentservice.client.BookingClient;
 import com.samilyak.paymentservice.client.stripe.StripeClient;
 import com.samilyak.paymentservice.dto.PaymentRequestDto;
 import com.samilyak.paymentservice.dto.PaymentResponseDto;
+import com.samilyak.paymentservice.exception.EntityNotFoundException;
 import com.samilyak.paymentservice.mapper.PaymentMapper;
 import com.samilyak.paymentservice.model.Payment;
 import com.samilyak.paymentservice.repository.PaymentRepository;
@@ -24,49 +24,43 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentMapper paymentMapper;
     private final StripeClient stripeClient;
-    private final BookingClient bookingClient;
 
     @Transactional
     @Override
     public PaymentResponseDto createPayment(PaymentRequestDto request) {
-        log.info("💳 Создание платежа для bookingId: {}, сумма: {}, номер телефона: {}",
-                request.bookingId(), request.amountToPay(), request.phoneNumber());
+        log.info("💳 Создание платежа для бронирования {}", request.bookingId());
 
         // Создаём сессию оплаты через Stripe
         Session session = stripeClient.createPaymentSession(request.amountToPay());
         log.info("✅ Создана платёжная сессия в Stripe: {}", session.getId());
 
-        Long userId = bookingClient.getUserIdByBookingId(request.bookingId());
-
-        if (userId == null) {
-            throw new RuntimeException("Can't find userID by bookingID: " + request.bookingId());
-        }
-
         Payment payment = Payment.builder()
                 .bookingId(request.bookingId())
+                .userId(request.userId())
                 .status(Payment.Status.PENDING)
                 .amountToPay(request.amountToPay())
                 .sessionId(session.getId())
                 .sessionUrl(session.getUrl())
                 .phoneNumber(request.phoneNumber())
-                .userId(userId)
                 .build();
 
-        log.info("📌 PhoneNumber в PaymentServiceImpl перед сохранением: {}", request.phoneNumber());
+        log.info("📌 Сохраняем платеж в БД: bookingId={}, phoneNumber={}",
+                request.bookingId(), request.phoneNumber());
 
-        Payment savedPayment = paymentRepository.save(payment);
-        log.info("✅ Платёж сохранён в БД: {}", savedPayment.getId());
+        Payment saved = paymentRepository.save(payment);
 
-        return paymentMapper.toDto(savedPayment);
+        log.info("✅ Платёж сохранён: {}", saved.getId());
+
+        return paymentMapper.toDto(saved);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     @Override
     public PaymentResponseDto getPaymentById(UUID paymentId) {
         log.info("🔍 Поиск платежа по ID: {}", paymentId);
         return paymentRepository.findById(paymentId)
                 .map(paymentMapper::toDto)
-                .orElseThrow(() -> new RuntimeException("Платёж не найден: " + paymentId));
+                .orElseThrow(() -> new EntityNotFoundException("Платёж не найден: " + paymentId));
     }
 
     @Override
@@ -74,7 +68,7 @@ public class PaymentServiceImpl implements PaymentService {
         log.info("🔄 Обновление статуса платежа: {} -> {}", paymentId, status);
 
         Payment payment = paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new RuntimeException("Платёж не найден: " + paymentId));
+                .orElseThrow(() -> new EntityNotFoundException("Платёж не найден: " + paymentId));
 
         payment.setStatus(status);
         paymentRepository.save(payment);
@@ -86,18 +80,15 @@ public class PaymentServiceImpl implements PaymentService {
     public List<PaymentResponseDto> getPaymentsByUserId(Long userId) {
         log.info("📊 Получение всех платежей пользователя: {}", userId);
 
-        return paymentRepository.findAll().stream()
-                .filter(payment -> {
-                    Long bookingUserId = bookingClient.getUserIdByBookingId(payment.getBookingId());
-                    return bookingUserId.equals(userId);
-                })
+        return paymentRepository.findAllByUserId(userId).stream()
                 .map(paymentMapper::toDto)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     @Override
     public Payment findBySessionId(String sessionId) {
         return paymentRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new RuntimeException("Payment not found by sessionId" + sessionId));
+                .orElseThrow(() -> new EntityNotFoundException("Payment not found by sessionId: " + sessionId));
     }
 }

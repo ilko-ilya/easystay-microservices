@@ -24,6 +24,8 @@ public class AccommodationAvailabilityServiceImpl implements AccommodationAvaila
         log.info("Initializing {} availability slots for accommodation {}", availability, accommodationId);
         slotRepository.deleteByAccommodationId(accommodationId);
 
+        slotRepository.flush();
+
         LocalDate start = LocalDate.now();
         List<AvailabilitySlot> slots = new ArrayList<>();
         for (int i = 0; i < availability; i++) {
@@ -46,15 +48,34 @@ public class AccommodationAvailabilityServiceImpl implements AccommodationAvaila
     @Transactional
     @Override
     public boolean areDatesAvailable(Long accommodationId, LocalDate checkIn, LocalDate checkOut) {
+        log.info("📅 Проверка доступности жилья {} с {} по {}", accommodationId, checkIn, checkOut);
+
+        if (checkIn.isAfter(checkOut) || checkIn.isEqual(checkOut)) {
+            log.warn("⚠️ Некорректный диапазон дат: {} - {}", checkIn, checkOut);
+            return false;
+        }
+
         List<AvailabilitySlot> slots =
                 slotRepository.findByAccommodationIdAndDateBetween(accommodationId, checkIn, checkOut);
-        boolean available = !slots.isEmpty() && slots.stream().noneMatch(AvailabilitySlot::isLocked);
-        log.info("Accommodation {} is {} for {} - {}",
-                accommodationId, available ? "available" : "unavailable",
-                checkIn, checkOut);
+
+        if (slots.isEmpty()) {
+            log.warn("⚠️ Нет слотов для жилья {} с {} по {} — пропускаем создание (слоты инициализируются отдельно)",
+                    accommodationId, checkIn, checkOut);
+            return false; // если нет — значит, даты нельзя забронировать
+        }
+
+        boolean available = slots.stream().noneMatch(AvailabilitySlot::isLocked);
+
+        if (available) {
+            log.info("✅ Жильё {} свободно для {} - {}", accommodationId, checkIn, checkOut);
+        } else {
+            log.warn("❌ Жильё {} занято для {} - {}", accommodationId, checkIn, checkOut);
+        }
+
         return available;
     }
 
+    @Transactional
     @Override
     public void lockDates(Long accommodationId, LocalDate checkIn, LocalDate checkOut) {
         List<AvailabilitySlot> slots =
@@ -64,6 +85,7 @@ public class AccommodationAvailabilityServiceImpl implements AccommodationAvaila
         log.info("Locked dates for accommodation {}: {} - {}", accommodationId, checkIn, checkOut);
     }
 
+    @Transactional
     @Override
     public void unlockDates(Long accommodationId, LocalDate checkIn, LocalDate checkOut) {
         List<AvailabilitySlot> slots =
