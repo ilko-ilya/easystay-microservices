@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/actuator/prometheus",
                                 "/api/auth/login",
                                 "/api/auth/register",
                                 "/api/auth/validate",

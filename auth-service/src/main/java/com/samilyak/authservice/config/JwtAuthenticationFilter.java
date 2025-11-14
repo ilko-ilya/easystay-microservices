@@ -37,6 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Пропускаем эндпоинты, которые не требуют проверки токена
         if (requestPath.startsWith("/api/auth/login")
+                || requestPath.startsWith("/actuator")
                 || requestPath.startsWith("/api/auth/register")
                 || requestPath.startsWith("/api/auth/validate")
                 || requestPath.startsWith("/api/auth/extract-username")

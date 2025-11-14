@@ -87,8 +87,14 @@ management:
     web:
       exposure:
         include: "*"
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
   endpoint:
-    gateway:
+    prometheus:
       enabled: true
 
   tracing:

@@ -44,10 +44,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: "*"
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
   endpoint:
-    health:
-      show-details: always
+    prometheus:
+      enabled: true
 
   tracing:
     sampling:
