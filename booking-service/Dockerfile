@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jdk
+FROM eclipse-temurin:23-jdk
 
 WORKDIR /app
 COPY target/booking-service-0.0.1-SNAPSHOT.jar application.jar
