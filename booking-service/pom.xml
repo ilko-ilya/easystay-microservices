@@ -13,6 +13,9 @@
     <artifactId>booking-service</artifactId>
 
     <properties>
+        <java.version>23</java.version>
+        <maven.compiler.source>23</maven.compiler.source>
+        <maven.compiler.target>23</maven.compiler.target>
         <liquibase.version>4.31.0</liquibase.version>
     </properties>
 
