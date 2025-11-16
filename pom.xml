@@ -14,7 +14,6 @@
 		<module>discovery</module>
 		<module>booking-service</module>
 		<module>accommodation-service</module>
-		<module>address-service</module>
 		<module>payment-service</module>
 		<module>notification-service</module>
 	</modules>
