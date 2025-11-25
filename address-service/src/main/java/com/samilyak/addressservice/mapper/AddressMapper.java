@@ -3,14 +3,29 @@ package com.samilyak.addressservice.mapper;
 import com.samilyak.addressservice.dto.AddressRequestDto;
 import com.samilyak.addressservice.dto.AddressResponseDto;
 import com.samilyak.addressservice.model.Address;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface AddressMapper {
+@Component
+public class AddressMapper {
 
-    @Mapping(target = "id", ignore = true) // ID создаётся автоматически
-    Address toEntity(AddressRequestDto dto);
+    public Address toEntity(AddressRequestDto requestDto) {
+        return Address.builder()
+                .country(requestDto.country())
+                .city(requestDto.city())
+                .street(requestDto.street())
+                .addressLine(requestDto.addressLine())
+                .zipCode(requestDto.zipCode())
+                .build();
+    }
 
-    AddressResponseDto toDto(Address address);
+    public AddressResponseDto toDto(Address address) {
+        return new AddressResponseDto(
+                address.getId(),
+                address.getCountry(),
+                address.getCity(),
+                address.getStreet(),
+                address.getAddressLine(),
+                address.getZipCode()
+        );
+    }
 }

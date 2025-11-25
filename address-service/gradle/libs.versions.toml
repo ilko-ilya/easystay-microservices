@@ -1,0 +1,21 @@
+[versions]
+springBoot = "3.4.1"
+springCloud = "2024.0.0"
+springDependencyManagement = "1.1.7"
+
+lombok = "1.18.42"
+postgres = "42.7.3"
+
+[libraries]
+# Lombok
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+
+# PostgreSQL
+postgres = { module = "org.postgresql:postgresql", version.ref = "postgres" }
+
+# Spring Cloud BOM
+springCloudBom = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "springCloud" }
+
+[plugins]
+springBoot = { id = "org.springframework.boot", version.ref = "springBoot" }
+springDependencyManagement = { id = "io.spring.dependency-management", version.ref = "springDependencyManagement" }
