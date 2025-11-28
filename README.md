@@ -56,16 +56,16 @@ graph TD
 
     %% --- Внутренняя сеть микросервисов ---
     subgraph Trusted Zone [Trusted Zone / Docker Net]
-        %% Оркестратор
-        Booking(Booking Service\n<SAGA Orchestrator>):::booking
+        %% Оркестратор - ИСПРАВЛЕНО ТУТ (убраны скобки < > и добавлены кавычки)
+        Booking("Booking Service\nSAGA Orchestrator"):::booking
         BookingDB[(Booking DB)]:::db
 
         %% Сервисы-участники
         Accommodation(Accommodation Service):::service
         AccDB[(Acc. DB)]:::db
         
-        %% Скрытый сервис
-        Address(Address Service\nJava 21 + Gradle):::hidden
+        %% Скрытый сервис - ИСПРАВЛЕНО ТУТ (добавлены кавычки)
+        Address("Address Service\nJava 21 + Gradle"):::hidden
         AddrDB[(Addr. DB)]:::db
 
         Payment(Payment Service):::service
@@ -98,7 +98,8 @@ graph TD
     Gateway -->|Route| Payment
 
     %% 3. Синхронные вызовы (FeignClient HTTP)
-    Booking -->|HTTP GET (Feign)| Accommodation
+    %% ИСПРАВЛЕНО ТУТ (текст в кавычках)
+    Booking -->|"HTTP GET (Feign)"| Accommodation
     Accommodation -->|Internal Call| Address
     Address <--> AddrDB
 
