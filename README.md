@@ -11,6 +11,7 @@ With **EasyStay**, you can easily find and book housing while ensuring a smooth 
 - **Hidden Microservices**: The Address Service is encapsulated behind the Accommodation Service, ensuring strict domain boundaries.
 - **Hybrid Tech Stack**: Demonstrates microservice autonomy by mixing **Java 17 (Maven)** and **Java 21 (Gradle)** within the same ecosystem.
 - **Payment Integration**: Secure payment processing with Stripe API and Webhooks.
+- **Caching & Performance**: Redis for high-speed data access and optimized database indexing.
 - **Observability**: Full tracing with Zipkin and metrics monitoring with Prometheus.
 
 ---
@@ -45,6 +46,7 @@ graph TD
         Eureka[Eureka Discovery]:::infra
         Config[Config Server]:::infra
         Zipkin[Zipkin & Prometheus]:::infra
+        Redis[Redis Cache]:::infra
     end
 
     %% --- Периметр безопасности (Вход) ---
@@ -259,7 +261,7 @@ POST /api/notifications/send
 - **Security:** Spring Security, JWT (Perimeter Security Pattern)
 - **API & Communication:** REST, Feign Client, OpenAPI (Swagger)
 - **Database:** PostgreSQL, Liquibase
-- **Infrastructure:** Docker, Eureka Service Discovery, Config Server
+- **Infrastructure:** Docker, Eureka Service Discovery, Config Server, Redis
 - **Payments:** Stripe API & Webhooks
 - **Messaging:** RabbitMQ (Event-Driven)
 - **Logging & Monitoring:** Zipkin, Prometheus, Promtail (Loki stack)
