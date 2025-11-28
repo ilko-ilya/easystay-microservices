@@ -5,29 +5,149 @@ With **EasyStay**, you can easily find and book housing while ensuring a smooth 
 
 ## 🌟 Features
 
-- **User authentication and authorization** (Spring Security, JWT)
-- **Accommodation management** (listings, availability, and pricing)
-- **Booking system** (create, update, cancel bookings)
-- **Payment processing** (Stripe API integration)
-- **Notifications** (RabbitMQ, Telegram API, email, and SMS)
-- **API Gateway & Service Discovery** (Spring Cloud Gateway, Eureka)
-- **Caching & Performance** (Redis, database indexing)
-- **Scalable & containerized architecture** (Docker, Docker Compose)
+- **Perimeter Security Architecture**: Centralized authentication via API Gateway & Auth Service (JWT). Internal services operate in a trusted zone for high performance.
+- **SAGA Pattern Orchestration**: Reliable distributed transactions managed by the Booking Service to ensure data consistency across payments and reservations.
+- **Event-Driven Architecture**: Asynchronous communication via RabbitMQ for notifications and payment processing updates.
+- **Hidden Microservices**: The Address Service is encapsulated behind the Accommodation Service, ensuring strict domain boundaries.
+- **Hybrid Tech Stack**: Demonstrates microservice autonomy by mixing **Java 17 (Maven)** and **Java 21 (Gradle)** within the same ecosystem.
+- **Payment Integration**: Secure payment processing with Stripe API and Webhooks.
+- **Observability**: Full tracing with Zipkin and metrics monitoring with Prometheus.
 
 ---
 
-## 🚀 **Getting Started**
+## 🏗️ Architecture
+
+The project follows a **Microservices Architecture** with **Perimeter Security**.
+
+* **Security:** The API Gateway acts as the single entry point, handling JWT validation and routing. Internal services trust requests forwarded by the Gateway.
+* **Orchestration:** The `Booking Service` acts as the SAGA orchestrator, managing the lifecycle of a reservation (Pending -> Paid -> Confirmed).
+* **Data Flow:** Synchronous REST calls (Feign) are used for data retrieval, while RabbitMQ handles asynchronous events (notifications, status updates).
+
+```mermaid
+graph TD
+    %% --- Стили и группы ---
+    classDef gateway fill:#ffecb3,stroke:#ffc107,stroke-width:2px;
+    classDef auth fill:#ffcdd2,stroke:#e57373,stroke-width:2px;
+    classDef booking fill:#c8e6c9,stroke:#81c784,stroke-width:3px;
+    classDef service fill:#e1f5fe,stroke:#4fc3f7,stroke-width:2px;
+    classDef hidden fill:#f5f5f5,stroke:#bdbdbd,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef db fill:#dcedc8,stroke:#aed581,stroke-width:2px;
+    classDef queue fill:#e0e0e0,stroke:#9e9e9e,stroke-width:2px;
+    classDef external fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef infra fill:#e0f7fa,stroke:#00bcd4,stroke-width:1px,stroke-dasharray: 2 2;
+
+    %% --- Актеры ---
+    User(👤 Customer / Manager)
+    StripeWebhook(⚡ Stripe Webhook)
+
+    %% --- Инфраструктура ---
+    subgraph Infra [Infrastructure]
+        Eureka[Eureka Discovery]:::infra
+        Config[Config Server]:::infra
+        Zipkin[Zipkin & Prometheus]:::infra
+    end
+
+    %% --- Периметр безопасности (Вход) ---
+    subgraph Security Perimeter [Security Perimeter]
+        Gateway(🛡️ API Gateway):::gateway
+        Auth(Auth Service):::auth
+        AuthDB[(Auth DB)]:::db
+    end
+
+    %% --- Внутренняя сеть микросервисов ---
+    subgraph Trusted Zone [Trusted Zone / Docker Net]
+        %% Оркестратор
+        Booking(Booking Service\n<SAGA Orchestrator>):::booking
+        BookingDB[(Booking DB)]:::db
+
+        %% Сервисы-участники
+        Accommodation(Accommodation Service):::service
+        AccDB[(Acc. DB)]:::db
+        
+        %% Скрытый сервис
+        Address(Address Service\nJava 21 + Gradle):::hidden
+        AddrDB[(Addr. DB)]:::db
+
+        Payment(Payment Service):::service
+        PaymentDB[(Payment DB)]:::db
+
+        Notification(Notification Service):::service
+
+        %% Очередь
+        RabbitMQ((RabbitMQ)):::queue
+    end
+
+    %% --- Внешние системы ---
+    subgraph External [External APIs]
+        StripeAPI[💳 Stripe API]:::external
+        TelegramAPI[✈️ Telegram / Email]:::external
+    end
+
+    %% --- Связи (Поток данных) ---
+
+    %% 1. Авторизация и вход
+    User -->|1. Login/Register| Gateway
+    Gateway -->|Proxy| Auth
+    Auth <--> AuthDB
+    Auth -->|JWT Token| Gateway
+
+    %% 2. Основные запросы (с токеном)
+    User -->|2. Request with JWT| Gateway
+    Gateway -->|3. Route & Header Propagation| Booking
+    Gateway -->|Route| Accommodation
+    Gateway -->|Route| Payment
+
+    %% 3. Синхронные вызовы (FeignClient HTTP)
+    Booking -->|HTTP GET (Feign)| Accommodation
+    Accommodation -->|Internal Call| Address
+    Address <--> AddrDB
+
+    %% 4. SAGA Оркестрация (Бронирование)
+    Booking <--> BookingDB
+    Booking -- "1. Booking PENDING" --> BookingDB
+
+    %% SAGA Шаг 2: Оплата (Асинхронно)
+    Booking -- "2. Event: InitiatePayment" --> RabbitMQ
+    RabbitMQ -- "Listen" --> Payment
+    Payment <--> PaymentDB
+    Payment -->|Create Session| StripeAPI
+    StripeAPI -- "Payment Link" --> Payment
+    Payment -- "Event: PaymentInitiated" --> RabbitMQ
+
+    %% Обработка Webhook от Stripe
+    StripeWebhook -->|5. Payment Success| Gateway
+    Gateway -->|Proxy| Payment
+    Payment -- "6. Event: PaymentSuccess" --> RabbitMQ
+    RabbitMQ -- "Listen" --> Booking
+    Booking -- "7. Update Status: CONFIRMED" --> BookingDB
+
+    %% SAGA Шаг 3: Уведомления (Асинхронно)
+    Booking -- "8. Event: BookingConfirmed" --> RabbitMQ
+    RabbitMQ -- "Listen" --> Notification
+    Notification -->|Send| TelegramAPI
+    
+    %% Config Connections (Hidden for clarity but implied)
+    Gateway -.-> Eureka
+    Booking -.-> Zipkin
+```
+
+---
+
+## 🚀 Getting Started
+
 Follow these simple steps to set up and run the project locally.
 
-### 📌 **1. Prerequisites**
+### 📌 1. Prerequisites
 Make sure you have installed:
-- Java 17
-- Maven
+- **Java 17** (Main services) & **Java 21** (Address Service)
+- **Maven** & **Gradle**
 - Docker & Docker Compose
 - PostgreSQL (optional, as the database runs in Docker)
 
-### 📌 **2. Clone the Repository**
-- git clone https://github.com/ilko-ilya/easystay-microservices
+### 📌 2. Clone the Repository
+```bash
+git clone https://github.com/ilko-ilya/easystay-microservices
+```
 
 ### 3️⃣ Build and Run Docker Containers
 ```bash
@@ -40,6 +160,7 @@ Once running, the EasyStay app will be available at:
 - **API Gateway**: [http://localhost:8222](http://localhost:8222)
 - **Swagger Docs**: [http://localhost:8222/swagger-ui.html](http://localhost:8222/swagger-ui.html)
 - **Eureka Dashboard**: [http://localhost:8761](http://localhost:8761)
+- **Zipkin Tracing**: [http://localhost:9411](http://localhost:9411)
 
 ## 📌 API Endpoints
 
@@ -132,13 +253,15 @@ POST /api/notifications/send
 ```
 
 ## ⚙️ Technologies Used
-- **Backend:** Java 17, Spring Boot 3, Spring Security, Spring Data JPA
+- **Backend:** Java 17, Java 21 (Address Service), Spring Boot 3
+- **Build Tools:** Maven, Gradle
+- **Security:** Spring Security, JWT (Perimeter Security Pattern)
 - **API & Communication:** REST, Feign Client, OpenAPI (Swagger)
 - **Database:** PostgreSQL, Liquibase
-- **Infrastructure:** Docker, Eureka Service Discovery, Config Server, RabbitMQ
-- **Payments:** Stripe API
-- **Messaging & Notifications:** Telegram API, RabbitMQ
-- **Logging & Tracing:** Zipkin, Spring Actuator
+- **Infrastructure:** Docker, Eureka Service Discovery, Config Server
+- **Payments:** Stripe API & Webhooks
+- **Messaging:** RabbitMQ (Event-Driven)
+- **Logging & Monitoring:** Zipkin, Prometheus, Promtail (Loki stack)
 
 ## 🎯 Future Enhancements
 - Implement Admin dashboard for better management.
