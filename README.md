@@ -12,7 +12,8 @@ With **EasyStay**, you can easily find and book housing while ensuring a smooth 
 - **Hybrid Tech Stack**: Demonstrates microservice autonomy by mixing **Java 17 (Maven)** and **Java 21 (Gradle)** within the same ecosystem.
 - **Payment Integration**: Secure payment processing with Stripe API and Webhooks.
 - **Caching & Performance**: Redis for high-speed data access and optimized database indexing.
-- **Observability**: Full tracing with Zipkin and metrics monitoring with Prometheus.
+- **Observability**: Distributed tracing with Zipkin, metrics monitoring with Prometheus,
+  and centralized logging with Promtail, Loki, and Grafana.
 
 ---
 
