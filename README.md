@@ -47,6 +47,7 @@ graph TD
         Eureka[Eureka Discovery]:::infra
         Config[Config Server]:::infra
         Zipkin[Zipkin & Prometheus]:::infra
+        Logging[Promtail → Loki → Grafana]:::infra
         Redis[Redis Cache]:::infra
     end
 
