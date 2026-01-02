@@ -54,8 +54,14 @@ public class Booking {
     @Column(name = "payment_id", unique = true)
     private String paymentId;
 
+    @Column(name = "dates_unlocked", nullable = false)
+    private boolean datesUnlocked = false;
+
+    @Column(name = "payment_canceled", nullable = false)
+    private boolean paymentCanceled = false;
+
     public enum Status {
-        PENDING, CONFIRMED, CANCELED, EXPIRED
+        PENDING, CONFIRMED, CANCELED, CANCELING, CANCEL_FAILED, EXPIRED
     }
 
 }
