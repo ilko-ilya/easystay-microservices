@@ -89,6 +89,70 @@ services:
       - booking-network
 
   # ==========================
+  # Zookeeper (Нужен для Kafka)
+  # ==========================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - booking-network
+
+  # ==========================
+  # Kafka (Брокер сообщений для SAGA)
+  # ==========================
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Настройка слушателей:
+      # INTERNAL - для общения между контейнерами (booking -> kafka)
+      # EXTERNAL - для общения с твоего компа (IntelliJ -> localhost:9092)
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Важно для одиночной ноды (чтобы не требовала 3 реплики):
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "9092" ]
+      interval: 10s
+      retries: 5
+      start_period: 15s
+    networks:
+      - booking-network
+
+  # ==========================
+  # Kafka UI (Визуализация топиков - ОЧЕНЬ УДОБНО)
+  # ==========================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    restart: always
+    ports:
+      - "8090:8080" # Будет доступно по http://localhost:8090
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    depends_on:
+      - kafka
+    networks:
+      - booking-network
+
+  # ==========================
   # Zipkin (Трассировка запросов)
   # ==========================
   zipkin:
@@ -251,6 +315,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
       config-server:
@@ -265,6 +331,7 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://eureka-server:8761/eureka/"
       EUREKA_INSTANCE_HOSTNAME: booking-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     networks:
       - booking-network
 
@@ -289,6 +356,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
       config-server:
@@ -305,6 +374,7 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://eureka-server:8761/eureka/"
 #      EUREKA_INSTANCE_HOSTNAME: accommodation-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 
     networks:
       - booking-network
@@ -395,6 +465,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
       config-server:
@@ -407,6 +479,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: Q12345w6
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     #      EUREKA_URI: http://eureka-server:8761/eureka
     networks:
       - booking-network
