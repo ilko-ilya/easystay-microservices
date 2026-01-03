@@ -28,6 +28,8 @@ public class BookingSagaService {
                 new BookingCancellationRequestedEvent(
                         booking.getId(),
                         booking.getAccommodationId(),
+                        booking.getCheckInDate(),
+                        booking.getCheckOutDate(),
                         booking.getPaymentId(),
                         booking.isRefundNeeded()
                 );
