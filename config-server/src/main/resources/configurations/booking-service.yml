@@ -34,6 +34,38 @@ spring:
     database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        spring.json.add.type.headers: false
+
+    consumer:
+      group-id: ${spring.application.name}-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: com.samilyak.bookingservice.dto.event
+
+    listener:
+      ack-mode: RECORD
+      missing-topics-fatal: false
+
+application:
+  kafka:
+    topics:
+      booking-cancellation-requested: booking.cancellation.requested.v1
+      payment-canceled: payment.canceled.v1
+      dates-unlocked: accommodation.dates.unlocked.v1
+
   redis:
     host: localhost
     port: 6379
