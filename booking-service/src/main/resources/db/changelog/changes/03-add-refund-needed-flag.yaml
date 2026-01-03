@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: add-refund-needed-flag-to-bookings
+      author: IlyaSamilyak
+      changes:
+        - addColumn:
+            tableName: bookings
+            columns:
+              - column:
+                  name: refund_needed
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

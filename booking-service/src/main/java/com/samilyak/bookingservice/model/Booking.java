@@ -60,6 +60,96 @@ public class Booking {
     @Column(name = "payment_canceled", nullable = false)
     private boolean paymentCanceled = false;
 
+    /**
+     * Do we expect payment refund during cancellation?
+     * true  -> confirmed booking, money was taken
+     * false -> failed booking, no money involved
+     */
+    @Column(name = "refund_needed", nullable = false)
+    private boolean refundNeeded = false;
+
+    /**
+     * Booking successfully created: payment ok, dates locked
+     */
+    public void confirm() {
+        if (status != Status.PENDING) {
+            throw new IllegalStateException("Only PENDING booking can be confirmed");
+        }
+        this.status = Status.CONFIRMED;
+        this.refundNeeded = true;
+    }
+
+    public void startCancellation() {
+        if (status != Status.CONFIRMED) {
+            throw new IllegalStateException("Only CONFIRMED booking can be canceled");
+        }
+        this.status = Status.CANCELING;
+        // refundNeeded already true
+    }
+
+    public void failBooking() {
+        if (status != Status.PENDING) {
+            throw new IllegalStateException("Only PENDING booking can be failed");
+        }
+        this.status = Status.CANCELING;
+        this.refundNeeded = false;
+    }
+
+    public void markPaymentCanceled() {
+
+        if (paymentCanceled) {
+            return;
+        }
+
+        if (status == Status.CANCELED || status == Status.EXPIRED) {
+            return;
+        }
+
+        if (status != Status.CANCELING) {
+            throw new IllegalStateException(
+                    "Payment can be canceled only during CANCELING. Current status: " + status
+            );
+        }
+
+        this.paymentCanceled = true;
+        tryFinishCancellation();
+    }
+
+    public void markDatesUnlocked() {
+
+        if (datesUnlocked) {
+            return;
+        }
+
+        if (status == Status.CANCELED || status == Status.EXPIRED) {
+            return;
+        }
+
+        if (status != Status.CANCELING) {
+            throw new IllegalStateException(
+                    "Dates can be unlocked only during CANCELING. Current status: " + status
+            );
+        }
+
+        this.datesUnlocked = true;
+        tryFinishCancellation();
+    }
+
+    private void tryFinishCancellation() {
+
+        if (refundNeeded) {
+            // CONFIRMED → CANCELING → CANCELED
+            if (paymentCanceled && datesUnlocked) {
+                this.status = Status.CANCELED;
+            }
+        } else {
+            // PENDING → CANCELING → EXPIRED
+            if (datesUnlocked) {
+                this.status = Status.EXPIRED;
+            }
+        }
+    }
+
     public enum Status {
         PENDING, CONFIRMED, CANCELED, CANCELING, CANCEL_FAILED, EXPIRED
     }

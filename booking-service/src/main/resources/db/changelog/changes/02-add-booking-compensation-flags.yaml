@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: add-booking-compensation-flags
+      author: IlyaSamilyak
+      changes:
+        - addColumn:
+            tableName: bookings
+            columns:
+
+              - column:
+                  name: dates_unlocked
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: payment_canceled
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
