@@ -51,6 +51,9 @@ public class Payment {
     @Column(nullable = false)
     private BigDecimal amountToPay;
 
+    @Column(name = "payment_intent_id")
+    private String paymentIntentId;
+
     public enum Status {
         PENDING, PAID, CANCELED, FAILED
     }

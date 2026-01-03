@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -91,4 +92,72 @@ public class PaymentServiceImpl implements PaymentService {
         return paymentRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found by sessionId: " + sessionId));
     }
+
+    @Transactional
+    @Override
+    public void cancelPayment(String paymentId) {
+        log.info("❌ Cancel payment {}", paymentId);
+
+        UUID uuid = parsePaymentId(paymentId);
+        Payment payment = getPaymentById(uuid, paymentId);
+
+        if (payment.getStatus() == Payment.Status.CANCELED) {
+            log.info("⚠️ Payment already canceled");
+            return;
+        }
+
+        if (payment.getPaymentIntentId() == null) {
+            log.info("ℹ️ No paymentIntent, nothing to refund");
+            payment.setStatus(Payment.Status.CANCELED);
+            paymentRepository.save(payment);
+            return;
+        }
+
+        stripeClient.refundPayment(payment.getPaymentIntentId());
+
+        payment.setStatus(Payment.Status.CANCELED);
+        paymentRepository.save(payment);
+
+        log.info("✅ Payment {} refunded and canceled", paymentId);
+    }
+
+    @Override
+    public void updatePaymentWithIntent(UUID paymentId,
+                                        Payment.Status status,
+                                        String paymentIntentId) {
+
+        Payment payment = getPaymentById(paymentId, paymentId.toString());
+
+        // Идемпотентность (на всякий случай)
+        if (payment.getStatus() == status
+                && Objects.equals(payment.getPaymentIntentId(), paymentIntentId)) {
+            return;
+        }
+
+        payment.setStatus(status);
+        payment.setPaymentIntentId(paymentIntentId);
+
+        paymentRepository.save(payment);
+
+        log.info(
+                "✅ Payment {} updated: status={}, paymentIntentId={}",
+                paymentId, status, paymentIntentId
+        );
+    }
+
+    private UUID parsePaymentId(String paymentId) {
+        try {
+            return UUID.fromString(paymentId);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Invalid paymentId format: " + paymentId);
+        }
+    }
+
+    private Payment getPaymentById(UUID uuid, String paymentId) {
+        return paymentRepository.findById(uuid)
+                .orElseThrow(() ->
+                        new EntityNotFoundException("Платёж не найден: " + paymentId)
+                );
+    }
+
 }

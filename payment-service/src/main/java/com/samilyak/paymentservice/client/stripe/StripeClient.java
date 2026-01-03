@@ -2,7 +2,9 @@ package com.samilyak.paymentservice.client.stripe;
 
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Refund;
 import com.stripe.model.checkout.Session;
+import com.stripe.param.RefundCreateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +63,23 @@ public class StripeClient {
         } catch (StripeException e) {
             log.error("❌ Ошибка при создании платёжной сессии", e);
             throw new RuntimeException("Ошибка при создании платёжной сессии", e);
+        }
+    }
+
+    public void refundPayment(String paymentIntentId) {
+        try {
+            log.info("💸 Stripe refund for paymentIntent {}", paymentIntentId);
+
+            RefundCreateParams params = RefundCreateParams.builder()
+                    .setPaymentIntent(paymentIntentId)
+                    .build();
+
+            Refund refund = Refund.create(params);
+            log.info("✅ Stripe refund created: {}", refund.getId());
+
+        } catch (StripeException e) {
+            log.error("❌ Stripe refund failed", e);
+            throw new RuntimeException("Stripe refund failed", e);
         }
     }
 
