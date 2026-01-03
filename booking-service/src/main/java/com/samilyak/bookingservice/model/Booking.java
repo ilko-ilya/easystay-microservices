@@ -150,7 +150,6 @@ public class Booking {
         }
     }
 
-
     public enum Status {
         PENDING, CONFIRMED, CANCELED, CANCELING, CANCEL_FAILED, EXPIRED
     }
