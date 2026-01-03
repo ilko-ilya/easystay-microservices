@@ -46,14 +46,26 @@ public class StripeWebhookStubController {
         switch (eventType) {
             case "checkout.session.completed" -> {
                 log.info("✅ Оплата завершена успешно, sessionId={}", sessionId);
-                Payment payment = paymentService.findBySessionId((sessionId));
-                paymentService.updatePaymentStatus(payment.getId(), Payment.Status.PAID);
+
+                String paymentIntentId = (String) payload.get("paymentIntentId");
+
+                Payment payment = paymentService.findBySessionId(sessionId);
+
+                // ВАЖНО: сохраняем paymentIntentId
+                paymentService.updatePaymentWithIntent(
+                        payment.getId(),
+                        Payment.Status.PAID,
+                        paymentIntentId
+                );
             }
+
             case "checkout.session.expired" -> {
                 log.info("⚠️ Сессия оплаты истекла, sessionId={}", sessionId);
+
                 Payment payment = paymentService.findBySessionId(sessionId);
                 paymentService.updatePaymentStatus(payment.getId(), Payment.Status.CANCELED);
             }
+
             default -> log.info("📌 Получено неизвестное событие: {}", eventType);
         }
 

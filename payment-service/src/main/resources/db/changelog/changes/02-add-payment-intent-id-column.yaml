@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: add-payment-intent-id-column-to-payments
+      author: IlyaSamilyak
+      changes:
+        - addColumn:
+            tableName: payments
+            columns:
+              - column:
+                  name: payment_intent_id
+                  type: varchar(255)

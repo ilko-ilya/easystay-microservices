@@ -101,6 +101,12 @@
             <artifactId>feign-micrometer</artifactId>
         </dependency>
 
+        <!-- Kafka -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- Валидация -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

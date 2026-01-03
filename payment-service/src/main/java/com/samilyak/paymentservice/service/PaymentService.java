@@ -19,4 +19,8 @@ public interface PaymentService {
 
     Payment findBySessionId(String sessionId);
 
+    void cancelPayment(String paymentId);
+
+    void updatePaymentWithIntent(UUID paymentId, Payment.Status status, String paymentIntentId);
+
 }

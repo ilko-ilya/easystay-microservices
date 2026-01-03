@@ -1,4 +1,4 @@
-package com.samilyak.bookingservice.dto.event;
+package com.samilyak.paymentservice.dto.event;
 
 import java.time.LocalDate;
 
