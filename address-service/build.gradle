@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.4.1'
-    id 'io.spring.dependency-management' version '1.1.7'     // Manages all versions of Spring Boot dependencies
+    id 'org.springframework.boot' version '3.4.1' // Свежая версия
+    id 'io.spring.dependency-management' version '1.1.7' // 👈 ВАЖНО: версия, которая работает с Gradle 8+
 }
 
 group = 'com.samilyak'
@@ -15,33 +15,32 @@ java {
 
 repositories {
     mavenCentral()
-    maven { url "https://repo.spring.io/release" }
+}
+
+ext {
+    // Для Spring Boot 3.4.x нужна версия Cloud 2024.0.0
+    set('springCloudVersion', "2024.0.0")
 }
 
 dependencies {
-    // Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-
-    // Spring Cloud BOM
-    implementation platform(libs.springCloudBom)      // Manages versions of Spring Cloud dependencies
-
-    // Spring Cloud
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
-    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
 
-    // Lombok
-    compileOnly libs.lombok
-    annotationProcessor libs.lombok
+    runtimeOnly 'org.postgresql:postgresql'
 
-    // PostgreSQL
-    runtimeOnly libs.postgres
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
 
-    // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
 }
 
 tasks.named('test') {

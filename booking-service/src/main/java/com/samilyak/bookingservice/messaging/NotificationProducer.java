@@ -1,5 +1,6 @@
 package com.samilyak.bookingservice.messaging;
 
+import com.samilyak.bookingservice.config.rabbitmq.RabbitMQConfig;
 import com.samilyak.bookingservice.dto.notification.NotificationDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

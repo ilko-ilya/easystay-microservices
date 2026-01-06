@@ -1,27 +1,23 @@
 package com.samilyak.bookingservice.service;
 
 import com.samilyak.bookingservice.client.AccommodationClient;
-import com.samilyak.bookingservice.client.NotificationClient;
-import com.samilyak.bookingservice.client.PaymentClient;
-import com.samilyak.bookingservice.dto.accommodation.AccommodationLockRequest;
-import com.samilyak.bookingservice.dto.accommodation.AccommodationLockResponse;
 import com.samilyak.bookingservice.dto.booking.BookingRequestDto;
 import com.samilyak.bookingservice.dto.booking.BookingResponseDto;
 import com.samilyak.bookingservice.dto.accommodation.AccommodationDto;
-import com.samilyak.bookingservice.dto.client.payment.PaymentRequestDto;
-import com.samilyak.bookingservice.dto.client.payment.PaymentResponseDto;
+import com.samilyak.bookingservice.dto.event.BookingCreatedEvent;
 import com.samilyak.bookingservice.dto.notification.NotificationDto;
-import com.samilyak.bookingservice.dto.notification.NotificationRequest;
 import com.samilyak.bookingservice.exception.AccessDeniedException;
-import com.samilyak.bookingservice.exception.AccommodationNotAvailableException;
 import com.samilyak.bookingservice.exception.EntityNotFoundException;
 import com.samilyak.bookingservice.mapper.BookingMapper;
+import com.samilyak.bookingservice.messaging.NotificationProducer;
+import com.samilyak.bookingservice.messaging.kafka.BookingMessageProducer;
 import com.samilyak.bookingservice.model.Booking;
 import com.samilyak.bookingservice.repository.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,126 +33,65 @@ public class BookingServiceImpl implements BookingService {
 
     private final BookingRepository bookingRepository;
     private final AccommodationClient accommodationClient;
-    private final PaymentClient paymentClient;
     private final BookingMapper bookingMapper;
-    private final NotificationClient notificationClient;
-    private final BookingCompensationService compensationService;
+    private final NotificationProducer notificationProducer;
+    private final BookingMessageProducer messageProducer;
 
     @Override
     @CacheEvict(value = {"userBookings"}, key = "#userId")
     @Transactional
     public BookingResponseDto createBooking(BookingRequestDto requestDto, String userId, String role) {
+        log.info("🔥🔥🔥 ВЕРСИЯ 2.0 - ПРОВЕРКА! Время: {}", java.time.LocalDateTime.now());
 
         validateDates(requestDto);
 
-        Booking savedBooking = null;
-        boolean datesLocked = false;
+        AccommodationDto accommodation = accommodationClient.getAccommodationById(
+                requestDto.accommodationId()
+        );
 
+        //  Рассчитываем стоимость
+        long days = ChronoUnit.DAYS.between(requestDto.checkInDate(), requestDto.checkOutDate());
+        BigDecimal dailyRate = accommodation.dailyRate();
+        BigDecimal totalPrice = dailyRate.multiply(BigDecimal.valueOf(days));
+
+        //  Создаем бронь PENDING
+        Long userIdLong = null;
         try {
-            //  Проверяем, что жильё существует
-            AccommodationDto accommodation = accommodationClient.getAccommodationById(
-                    requestDto.accommodationId()
-            );
-
-            //  Проверяем, что даты свободны (в accommodation-service)
-            boolean isAvailable = accommodationClient.isAccommodationAvailable(
-                    requestDto.accommodationId(),
-                    requestDto.checkInDate(),
-                    requestDto.checkOutDate()
-            );
-            if (!isAvailable) {
-                throw new AccommodationNotAvailableException("Даты уже заняты");
-            }
-
-            //  Рассчитываем стоимость
-            long days = ChronoUnit.DAYS.between(requestDto.checkInDate(), requestDto.checkOutDate());
-            BigDecimal dailyRate = accommodation.dailyRate();
-            BigDecimal totalPrice = dailyRate.multiply(BigDecimal.valueOf(days));
-
-            //  Создаем бронь PENDING
-            Long userIdLong = null;
-            try {
-                userIdLong = Long.valueOf(userId);
-            } catch (NumberFormatException e) {
-                log.warn("UserId '{}' is not numeric — using null instead", userId);
-            }
-
-            savedBooking = savePendingBooking(requestDto, userIdLong, totalPrice);
-
-            //  Только теперь блокируем даты
-            AccommodationLockResponse lockResponse = accommodationClient.lockDates(
-                    requestDto.accommodationId(),
-                    new AccommodationLockRequest(
-                            requestDto.checkInDate(),
-                            requestDto.checkOutDate(),
-                            accommodation.version()
-                    ),
-                    userId
-            );
-            if (!lockResponse.success()) {
-                throw new AccommodationNotAvailableException(lockResponse.message());
-            }
-            datesLocked = true;
-
-            //  Создаем платёж
-            PaymentResponseDto paymentResponse = paymentClient.createPayment(
-                    new PaymentRequestDto(
-                            savedBooking.getId(),
-                            savedBooking.getTotalPrice(),
-                            savedBooking.getPhoneNumber(),
-                            Long.valueOf(userId)
-                    )
-            );
-
-            //  Подтверждаем бронь
-            savedBooking.setPaymentId(paymentResponse.sessionId());
-            savedBooking.setStatus(Booking.Status.CONFIRMED);
-            bookingRepository.save(savedBooking);
-
-            //  Отправляем уведомление
-            notificationClient.sendNotification(
-                    new NotificationRequest(
-                            new NotificationDto(
-                                    userIdLong,
-                                    requestDto.phoneNumber(),
-                                    "Создана сессия оплаты для бронирования #" + savedBooking.getId() +
-                                            ". Пожалуйста, завершите оплату."
-                            ),
-                            List.of("telegram", "sms")
-                    )
-            );
-
-            return bookingMapper.toDto(savedBooking);
-
-        } catch (RuntimeException ex) {
-            //  При любой ошибке — откатываем и разблокируем даты
-            if (savedBooking != null) {
-                log.warn("↩️ Компенсация брони {}", savedBooking.getId());
-                compensationService.compensate(savedBooking, requestDto);
-            }
-
-            // 2. Если бронь НЕ создана, но даты заблокированы → Unlock вручную
-            else if (datesLocked) {
-                try {
-                    accommodationClient.unlockDates(
-                            requestDto.accommodationId(),
-                            new AccommodationLockRequest(
-                                    requestDto.checkInDate(),
-                                    requestDto.checkOutDate(),
-                                    null
-                            ),
-                            userId
-                    );
-                    log.info("🔓 Даты разблокированы после ошибки");
-                } catch (Exception unlockEx) {
-                    log.error("⚠️ Ошибка при разблокировке дат: {}", unlockEx.getMessage());
-                }
-            }
-
-            throw ex;
+            userIdLong = Long.valueOf(userId);
+        } catch (NumberFormatException e) {
+            log.warn("UserId '{}' is not numeric — using null instead", userId);
         }
-    }
 
+        Booking savedBooking = savePendingBooking(requestDto, userIdLong, totalPrice);
+
+        log.info("Booking #{} saved with status PENDING. Starting SAGA...", savedBooking.getId());
+
+        BookingCreatedEvent event = new BookingCreatedEvent(
+                savedBooking.getId(),
+                userIdLong,
+                requestDto.accommodationId(),
+                requestDto.checkInDate(),
+                requestDto.checkOutDate(),
+                savedBooking.getTotalPrice(),
+                requestDto.phoneNumber(),
+                accommodation.version()
+        );
+
+        messageProducer.sendBookingCreated(event);
+
+        NotificationDto notification = new NotificationDto(
+                userIdLong,
+                requestDto.phoneNumber(),
+                "Ваше бронирование #" + savedBooking.getId() + " создано и ожидает оплаты."
+        );
+
+        notificationProducer.sendNotification(
+                notification,
+                List.of("telegram", "email")
+        );
+
+        return bookingMapper.toDto(savedBooking);
+    }
 
     @Cacheable(value = "userBookings", key = "#userId", unless = "#result.size() == 0")
     @Override

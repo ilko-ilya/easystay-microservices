@@ -68,7 +68,13 @@ spring:
 application:
   kafka:
     topics:
+      # Входящие (Слушаем)
+      inventory-reserved: inventory.reserved.v1
       booking-cancellation-requested: booking.cancellation.requested.v1
+
+      # Исходящие (Отправляем)
+      payment-success: payment.success.v1
+      payment-failed: payment.failed.v1
       payment-canceled: payment.canceled.v1
 
 management:

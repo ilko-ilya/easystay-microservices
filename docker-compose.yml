@@ -118,19 +118,15 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # Настройка слушателей:
-      # INTERNAL - для общения между контейнерами (booking -> kafka)
-      # EXTERNAL - для общения с твоего компа (IntelliJ -> localhost:9092)
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      # Важно для одиночной ноды (чтобы не требовала 3 реплики):
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     healthcheck:
-      test: [ "CMD", "nc", "-z", "localhost", "9092" ]
+      test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1" ]
       interval: 10s
-      retries: 5
-      start_period: 15s
+      retries: 10
+      start_period: 40s
     networks:
       - booking-network
 
@@ -317,10 +313,14 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
       config-server:
         condition: service_healthy
+    volumes:
+      - ./booking-service/target/booking-service-0.0.1-SNAPSHOT.jar:/app/application.jar
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking
@@ -332,6 +332,9 @@ services:
       EUREKA_INSTANCE_HOSTNAME: booking-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_TRUSTED_PACKAGES: "*"
+      SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_USE_TYPE_HEADERS: "false"
     networks:
       - booking-network
 
@@ -375,7 +378,9 @@ services:
 #      EUREKA_INSTANCE_HOSTNAME: accommodation-service
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-
+      SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_TRUSTED_PACKAGES: "*"
+      SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_USE_TYPE_HEADERS: "false"
+      SPRING_KAFKA_CONSUMER_GROUP_ID: "accommodation-group-NEW-V3"
     networks:
       - booking-network
 

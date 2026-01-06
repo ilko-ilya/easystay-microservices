@@ -2,11 +2,11 @@ package com.samilyak.accommodationservice.service;
 
 import com.samilyak.accommodationservice.client.AddressClient;
 import com.samilyak.accommodationservice.dto.AccommodationDto;
-import com.samilyak.accommodationservice.dto.AccommodationLockCommand;
-import com.samilyak.accommodationservice.dto.AccommodationLockResult;
 import com.samilyak.accommodationservice.dto.AccommodationRequestDto;
 import com.samilyak.accommodationservice.dto.AccommodationUpdateDto;
 import com.samilyak.accommodationservice.dto.AddressResponseDto;
+import com.samilyak.accommodationservice.exception.DatesNotAvailableException;
+import com.samilyak.accommodationservice.exception.OptimisticLockingFailureException;
 import com.samilyak.accommodationservice.mapper.AccommodationMapper;
 import com.samilyak.accommodationservice.model.Accommodation;
 import com.samilyak.accommodationservice.model.AvailabilitySlot;
@@ -55,8 +55,7 @@ public class AccommodationServiceImpl implements AccommodationService {
     @Override
     public AccommodationDto update(Long id, AccommodationUpdateDto updateDto) {
         log.info("✏️ Обновление жилья ID={} данными {}", id, updateDto);
-        Accommodation accommodation = accommodationRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Accommodation not found with id: " + id));
+        Accommodation accommodation = getAccommodationOrThrow(id);
 
         if (updateDto.amenities() != null) {
             accommodation.setAmenities(updateDto.amenities());
@@ -128,8 +127,7 @@ public class AccommodationServiceImpl implements AccommodationService {
 //    @Cacheable(value = "accommodations", key = "#id")
     public AccommodationDto getById(Long id) {
         log.info("🔍 Получение жилья по ID={}", id);
-        Accommodation accommodation = accommodationRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Accommodation not found with id: " + id));
+        Accommodation accommodation = getAccommodationOrThrow(id);
 
         return mapToDto(accommodation);
     }
@@ -154,65 +152,31 @@ public class AccommodationServiceImpl implements AccommodationService {
                 .toList();
     }
 
-
-    @Override
-    @Transactional
-    public boolean isAvailable(Long accommodationId, LocalDate checkIn, LocalDate checkOut) {
-        log.info("📅 Проверка доступности жилья {} с {} по {}", accommodationId, checkIn, checkOut);
-        return availabilityService.areDatesAvailable(accommodationId, checkIn, checkOut);
-    }
-
     @Transactional
     @Override
-    public AccommodationLockResult lockDates(Long accommodationId, AccommodationLockCommand command) {
-        LocalDate checkIn = command.checkInDate();
-        LocalDate checkOut = command.checkOutDate();
-        LocalDate lastNight = checkOut.minusDays(1);
+    public void attemptReservation(Long accommodationId, LocalDate checkIn, LocalDate checkOut, Long expectedVersion) {
+        log.info("🔒 SAGA: Попытка бронирования жилья {} с {} по {}", accommodationId, checkIn, checkOut);
 
-        log.info("🔒 Попытка заблокировать даты для жилья {}: {} - {} (lastNight={}, версия {})",
-                accommodationId, checkIn, checkOut, lastNight, command.expectedVersion());
+        Accommodation accommodation = getAccommodationOrThrow(accommodationId);
 
-        Accommodation accommodation = accommodationRepository.findById(accommodationId)
-                .orElseThrow(() -> new EntityNotFoundException("Жильё не найдено с id: " + accommodationId));
-
-        if (!accommodation.getVersion().equals(command.expectedVersion())) {
-            log.warn("⚠️ Версия устарела для жилья {}. Ожидалось: {}, актуальная: {}",
-                    accommodationId, command.expectedVersion(), accommodation.getVersion());
-            return new AccommodationLockResult(false, "Данные устарели. Обновите страницу", null);
+        // 1. Проверка версионности (чтобы никто не перехватил перед носом)
+        if (!accommodation.getVersion().equals(expectedVersion)) {
+            throw new OptimisticLockingFailureException("Версия жилья устарела. Ожидалась: " + expectedVersion);
         }
 
-        // ✅ Проверяем только ночи [checkIn .. checkOut-1]
-        if (!availabilityService.areDatesAvailable(accommodationId, checkIn, lastNight)) {
-            log.warn("⚠️ Даты уже заняты для жилья {}: с {} по {}", accommodationId, checkIn, lastNight);
-            return new AccommodationLockResult(false, "Даты уже заняты", null);
+        // 2. Проверка доступности
+        if (!availabilityService.areDatesAvailable(accommodationId, checkIn, checkOut)) {
+            throw new DatesNotAvailableException("Даты уже заняты");
         }
 
-        try {
-            // ✅ Блокируем только ночи [checkIn .. checkOut-1]
-            availabilityService.lockDates(accommodationId, checkIn, lastNight);
-            accommodation.setVersion(accommodation.getVersion() + 1);
-            accommodationRepository.save(accommodation);
+        // 3. Блокировка
+        availabilityService.lockDates(accommodationId, checkIn, checkOut);
 
-            log.info("✅ Даты заблокированы для жилья {}: с {} по {}", accommodationId, checkIn, lastNight);
-            return new AccommodationLockResult(true, "Даты заблокированы", accommodation.getDailyRate());
+        // 4. Обновление версии
+        accommodation.setVersion(accommodation.getVersion() + 1);
+        accommodationRepository.save(accommodation);
 
-        } catch (Exception e) {
-            log.error("❌ Ошибка при блокировке дат для жилья {}: {}", accommodationId, e.getMessage());
-            return new AccommodationLockResult(false, "Ошибка при блокировке дат: " + e.getMessage(), null);
-        }
-    }
-
-
-    @Transactional
-    @Override
-    public void unlockDates(Long accommodationId, AccommodationLockCommand command) {
-        try {
-            availabilityService.unlockDates(accommodationId, command.checkInDate(), command.checkOutDate());
-            log.info("Даты разблокированы для жилья {}: с {} по {}",
-                    accommodationId, command.checkInDate(), command.checkOutDate());
-        } catch (Exception e) {
-            log.error("Ошибка при разблокировке дат для жилья {}: {}", accommodationId, e.getMessage());
-        }
+        log.info("✅ Успешная блокировка SAGA для жилья {}", accommodationId);
     }
 
     private AccommodationDto mapToDto(Accommodation accommodation) {
@@ -227,5 +191,10 @@ public class AccommodationServiceImpl implements AccommodationService {
                 accommodation.getAvailability(),
                 accommodation.getVersion()
         );
+    }
+
+    private Accommodation getAccommodationOrThrow(Long id) {
+        return accommodationRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Accommodation not found with id: " + id));
     }
 }

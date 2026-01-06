@@ -55,7 +55,7 @@ public class BookingController {
     @Operation(summary = "Get booking by ID", description = "Retrieve booking details")
     @GetMapping("/{id}")
     public ResponseEntity<BookingResponseDto> getBookingById(
-            @PathVariable Long id,
+            @PathVariable("id") Long id,
             @RequestHeader("X-User-Id") String userId,
             @RequestHeader("X-User-Role") String role) {
         return ResponseEntity.ok(bookingService.getBookingById(id, userId, role));
@@ -63,7 +63,7 @@ public class BookingController {
 
     @Operation(summary = "Get userID by bookingID", description = "Get UserID by BookingID")
     @GetMapping("/{bookingId}/user-id")
-    public ResponseEntity<Long> getUserIdByBookingId(@PathVariable Long bookingId) {
+    public ResponseEntity<Long> getUserIdByBookingId(@PathVariable("bookingId") Long bookingId) {
         log.info("📌 Получение userId для bookingId: {}", bookingId);
         return ResponseEntity.ok(bookingService.getUserIdByBookingId(bookingId));
     }
@@ -71,7 +71,7 @@ public class BookingController {
     @Operation(summary = "Delete booking", description = "Only MANAGER can delete a booking")
     @ResponseStatus(NO_CONTENT)
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id, @RequestHeader("X-User-Role") String role) {
+    public void delete(@PathVariable("id") Long id, @RequestHeader("X-User-Role") String role) {
         bookingService.deleteBookingById(id, role);
     }
 
