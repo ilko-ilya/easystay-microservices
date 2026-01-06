@@ -23,8 +23,10 @@ The project follows a **Microservices Architecture** with **Perimeter Security**
 
 * **Security:** The API Gateway acts as the single entry point, handling JWT validation and routing. Internal services trust requests forwarded by the Gateway.
 * **Orchestration:** The `Booking Service` acts as the SAGA orchestrator, managing the lifecycle of a reservation (Pending -> Paid -> Confirmed).
-* **Data Flow:** Synchronous REST calls (Feign) are used for data retrieval, while RabbitMQ handles asynchronous events (notifications, status updates).
-
+* **Data Flow:**
+  * **Synchronous (Feign):** Used for read-only operations (e.g., getting accommodation details).
+  * **Asynchronous (Kafka):** Used for transactional operations (SAGA - Creating a booking).
+  * **Asynchronous (RabbitMQ):** Used for non-transactional events (Sending Email/Telegram/Sms notifications).
 ```mermaid
 graph TD
     %% --- Стили и группы ---
@@ -37,6 +39,10 @@ graph TD
     classDef queue fill:#e0e0e0,stroke:#9e9e9e,stroke-width:2px;
     classDef external fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,stroke-dasharray: 5 5;
     classDef infra fill:#e0f7fa,stroke:#00bcd4,stroke-width:1px,stroke-dasharray: 2 2;
+    
+    %% Новые стили для брокеров
+    classDef kafka fill:#ff9800,stroke:#e65100,stroke-width:2px,color:white;
+    classDef rabbit fill:#ff7043,stroke:#bf360c,stroke-width:2px,color:white;
 
     %% --- Актеры ---
     User(👤 Customer / Manager)
@@ -60,6 +66,10 @@ graph TD
 
     %% --- Внутренняя сеть микросервисов ---
     subgraph Trusted Zone [Trusted Zone / Docker Net]
+        %% Брокеры сообщений (Добавлено)
+        Kafka((Apache Kafka\nSAGA Events)):::kafka
+        RabbitMQ((RabbitMQ\nNotifications)):::rabbit
+        
         %% Оркестратор - ИСПРАВЛЕНО ТУТ (убраны скобки < > и добавлены кавычки)
         Booking("Booking Service\nSAGA Orchestrator"):::booking
         BookingDB[(Booking DB)]:::db
@@ -77,8 +87,6 @@ graph TD
 
         Notification(Notification Service):::service
 
-        %% Очередь
-        RabbitMQ((RabbitMQ)):::queue
     end
 
     %% --- Внешние системы ---
@@ -107,27 +115,31 @@ graph TD
     Accommodation -->|Internal Call| Address
     Address <--> AddrDB
 
-    %% 4. SAGA Оркестрация (Бронирование)
+    %% 4. SAGA Оркестрация (Бронирование) через Kafka
     Booking <--> BookingDB
     Booking -- "1. Booking PENDING" --> BookingDB
 
-    %% SAGA Шаг 2: Оплата (Асинхронно)
-    Booking -- "2. Event: InitiatePayment" --> RabbitMQ
-    RabbitMQ -- "Listen" --> Payment
+    %% SAGA Шаг 1: Инвентаризация (Kafka)
+    Booking -- "2. Event: booking.created" --> Kafka
+    Kafka -- "3. Consume" --> Accommodation
+    Accommodation <--> AccDB
+    Accommodation -- "4. Event: inventory.reserved/failed" --> Kafka
+    Kafka -- "5. Consume Result" --> Booking
+    Booking -- "6. Update Status" --> BookingDB
+
+    %% SAGA Шаг 2: Оплата (Kafka - заготовка)
+    Booking -.->|"Next: Initiate Payment"| Kafka
+    Kafka -.-> Payment
     Payment <--> PaymentDB
     Payment -->|Create Session| StripeAPI
     StripeAPI -- "Payment Link" --> Payment
-    Payment -- "Event: PaymentInitiated" --> RabbitMQ
 
     %% Обработка Webhook от Stripe
-    StripeWebhook -->|5. Payment Success| Gateway
+    StripeWebhook -->|Payment Success| Gateway
     Gateway -->|Proxy| Payment
-    Payment -- "6. Event: PaymentSuccess" --> RabbitMQ
-    RabbitMQ -- "Listen" --> Booking
-    Booking -- "7. Update Status: CONFIRMED" --> BookingDB
 
-    %% SAGA Шаг 3: Уведомления (Асинхронно)
-    Booking -- "8. Event: BookingConfirmed" --> RabbitMQ
+    %% SAGA Шаг 3: Уведомления (RabbitMQ)
+    Booking -- "Async Notification" --> RabbitMQ
     RabbitMQ -- "Listen" --> Notification
     Notification -->|Send| TelegramAPI
     
@@ -165,6 +177,7 @@ Once running, the EasyStay app will be available at:
 - **API Gateway**: [http://localhost:8222](http://localhost:8222)
 - **Swagger Docs**: [http://localhost:8222/swagger-ui.html](http://localhost:8222/swagger-ui.html)
 - **Eureka Dashboard**: [http://localhost:8761](http://localhost:8761)
+- **Kafka UI**: [http://localhost:9000](http://localhost:9000)
 - **Zipkin Tracing**: [http://localhost:9411](http://localhost:9411)
 
 ## 📌 API Endpoints
@@ -265,7 +278,7 @@ POST /api/notifications/send
 - **Database:** PostgreSQL, Liquibase
 - **Infrastructure:** Docker, Eureka Service Discovery, Config Server, Redis
 - **Payments:** Stripe API & Webhooks
-- **Messaging:** RabbitMQ (Event-Driven)
+- **Messaging:** Apache Kafka (Core SAGA Orchestration), RabbitMQ (Event-Driven)
 - **Logging & Monitoring:** Zipkin, Prometheus, Promtail (Loki stack)
 
 ## 🎯 Future Enhancements
