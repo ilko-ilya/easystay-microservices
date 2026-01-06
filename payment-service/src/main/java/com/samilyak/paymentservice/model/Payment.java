@@ -55,6 +55,6 @@ public class Payment {
     private String paymentIntentId;
 
     public enum Status {
-        PENDING, PAID, CANCELED, FAILED
+        PENDING, PAID, CANCELED, FAILED, REFUNDED
     }
 }

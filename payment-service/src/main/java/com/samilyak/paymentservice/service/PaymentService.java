@@ -1,26 +1,24 @@
 package com.samilyak.paymentservice.service;
 
-import com.samilyak.paymentservice.dto.PaymentRequestDto;
 import com.samilyak.paymentservice.dto.PaymentResponseDto;
 import com.samilyak.paymentservice.model.Payment;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 public interface PaymentService {
 
-    PaymentResponseDto createPayment(PaymentRequestDto request);
-
     PaymentResponseDto getPaymentById(UUID paymentId);
-
-    void updatePaymentStatus(UUID paymentId, Payment.Status status);
 
     List<PaymentResponseDto> getPaymentsByUserId(Long userId);
 
     Payment findBySessionId(String sessionId);
 
-    void cancelPayment(String paymentId);
+    void cancelPayment(String bookingId);
 
     void updatePaymentWithIntent(UUID paymentId, Payment.Status status, String paymentIntentId);
+
+    void initiatePayment(Long bookingId, Long userId, BigDecimal amount);
 
 }

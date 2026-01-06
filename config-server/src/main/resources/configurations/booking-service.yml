@@ -53,7 +53,8 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       auto-offset-reset: earliest
       properties:
-        spring.json.trusted.packages: com.samilyak.bookingservice.dto.event
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
 
     listener:
       ack-mode: RECORD
@@ -62,9 +63,19 @@ spring:
 application:
   kafka:
     topics:
+      # --- Flow Отмены ---
       booking-cancellation-requested: booking.cancellation.requested.v1
       payment-canceled: payment.canceled.v1
       dates-unlocked: accommodation.dates.unlocked.v1
+      booking-created: booking.created.v1
+
+      # 2. Accommodation Service отвечает (Успех/Провал)
+      inventory-reserved: inventory.reserved.v1       # Слушает PaymentService
+      inventory-failed: inventory.failed.v1           # Слушает BookingService -> failBookingCreation
+
+      # 3. Payment Service отвечает (Успех/Провал)
+      payment-success: payment.success.v1             # Слушает BookingService -> finalizeBookingCreation
+      payment-failed: payment.failed.v1               # Слушает BookingService -> failBookingCreation
 
   redis:
     host: localhost

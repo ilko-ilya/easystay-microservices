@@ -1,6 +1,8 @@
 package com.samilyak.paymentservice.messaging.kafka;
 
 import com.samilyak.paymentservice.dto.event.PaymentCanceledEvent;
+import com.samilyak.paymentservice.dto.event.PaymentFailedEvent;
+import com.samilyak.paymentservice.dto.event.PaymentSuccessEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,16 +22,33 @@ public class PaymentMessageProducer {
     @Value("${application.kafka.topics.payment-canceled}")
     private String paymentCanceledTopic;
 
-    public void sendPaymentCanceled(PaymentCanceledEvent event) {
-        log.info("Sending PaymentCanceledEvent for bookingId={}", event.bookingId());
+    @Value("${application.kafka.topics.payment-success}")
+    private String paymentSuccessTopic;
 
-        Message<PaymentCanceledEvent> message = MessageBuilder
-                .withPayload(event)
-                .setHeader(KafkaHeaders.TOPIC, paymentCanceledTopic)
-                .setHeader(KafkaHeaders.KEY, String.valueOf(event.bookingId()))
-                .build();
+    @Value("${application.kafka.topics.payment-failed}")
+    private String paymentFailedTopic;
 
-        kafkaTemplate.send(message);
+    public void sendPaymentSuccess(PaymentSuccessEvent event) {
+        log.info("📤 Sending PaymentSuccessEvent for bookingId={}", event.bookingId());
+        sendMessage(paymentSuccessTopic, String.valueOf(event.bookingId()), event);
     }
 
+    public void sendPaymentFailed(PaymentFailedEvent event) {
+        log.warn("📤 Sending PaymentFailedEvent for bookingId={}", event.bookingId());
+        sendMessage(paymentFailedTopic, String.valueOf(event.bookingId()), event);
+    }
+
+    public void sendPaymentCanceled(PaymentCanceledEvent event) {
+        log.info("📤 Sending PaymentCanceledEvent for bookingId={}", event.bookingId());
+        sendMessage(paymentCanceledTopic, String.valueOf(event.bookingId()), event);
+    }
+
+    private void sendMessage(String topic, String key, Object payload) {
+        Message<Object> message = MessageBuilder
+                .withPayload(payload)
+                .setHeader(KafkaHeaders.TOPIC, topic)
+                .setHeader(KafkaHeaders.KEY, key)
+                .build();
+        kafkaTemplate.send(message);
+    }
 }

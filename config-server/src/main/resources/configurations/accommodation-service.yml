@@ -48,7 +48,8 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       auto-offset-reset: earliest
       properties:
-        spring.json.trusted.packages: com.samilyak.accommodationservice.dto.event
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
 
     listener:
       ack-mode: RECORD
@@ -57,7 +58,13 @@ spring:
 application:
   kafka:
     topics:
+      # Слушаем
+      booking-created: booking.created.v1
       booking-cancellation-requested: booking.cancellation.requested.v1
+
+      # Отправляем
+      inventory-reserved: inventory.reserved.v1
+      inventory-failed: inventory.failed.v1
       dates-unlocked: accommodation.dates.unlocked.v1
 
 

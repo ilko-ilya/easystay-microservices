@@ -1,6 +1,5 @@
 package com.samilyak.bookingservice.client;
 
-import com.samilyak.bookingservice.config.FeignTracingConfig;
 import com.samilyak.bookingservice.dto.client.user.UserDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
