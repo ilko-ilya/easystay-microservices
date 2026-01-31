@@ -16,28 +16,16 @@ public class BookingCancellationConsumer {
     private final AccommodationAvailabilityService availabilityService;
     private final AccommodationMessageProducer messageProducer;
 
-    @KafkaListener(
-            topics = "${application.kafka.topics.booking-cancellation-requested}",
-            groupId = "${spring.kafka.consumer.group-id}"
-    )
-
+    @KafkaListener(topics = "${application.kafka.topics.booking-cancellation-requested}")
     public void handleCancellation(BookingCancellationRequestedEvent event) {
-        log.info(
-                "📩 Cancellation received: bookingId={}, accommodationId={}, {} - {}",
-                event.bookingId(),
-                event.accommodationId(),
-                event.checkInDate(),
-                event.checkOutDate()
-        );
+        log.info("📩 Cancellation received: bookingId={}", event.bookingId());
 
-        // 🔓 Разблокируем ровно те даты, которые были забронированы
         availabilityService.unlockDates(
                 event.accommodationId(),
                 event.checkInDate(),
-                event.checkOutDate().minusDays(1) // ночи!
+                event.checkOutDate().minusDays(1)
         );
 
-        // 📤 Сообщаем booking-service
         messageProducer.sendDatesUnlocked(
                 new DatesUnlockedEvent(
                         event.bookingId(),
