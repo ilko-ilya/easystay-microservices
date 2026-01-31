@@ -1,6 +1,5 @@
 package com.samilyak.accommodationservice.messaging.kafka;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.samilyak.accommodationservice.dto.event.BookingCreatedEvent;
 import com.samilyak.accommodationservice.dto.event.InventoryReservationFailedEvent;
 import com.samilyak.accommodationservice.dto.event.InventoryReservedEvent;
@@ -17,26 +16,10 @@ public class BookingCreationConsumer {
 
     private final AccommodationService accommodationService;
     private final AccommodationMessageProducer messageProducer;
-    private final ObjectMapper objectMapper; // 👇 Наш инструмент
 
-    @KafkaListener(
-            topics = "${application.kafka.topics.booking-created}",
-            groupId = "${spring.kafka.consumer.group-id}"
-    )
-    public void onBookingCreated(String message) { // 👈 Принимаем String!
-        log.info("📨 RAW MESSAGE received: {}", message); // Увидим текст до ошибки!
-
-        BookingCreatedEvent event;
-        try {
-            // 👇 Сами превращаем текст в объект. Если упадет - увидим почему.
-            event = objectMapper.readValue(message, BookingCreatedEvent.class);
-        } catch (Exception e) {
-            log.error("❌ JSON Parse Error: {}", e.getMessage());
-            return; // Не можем прочитать - выходим
-        }
-
-        log.info("✅ Parsed Event: bookingId={}, dates={} - {}",
-                event.bookingId(), event.checkInDate(), event.checkOutDate());
+    @KafkaListener(topics = "${application.kafka.topics.booking-created}")
+    public void onBookingCreated(BookingCreatedEvent event) { // 👈 Сразу DTO
+        log.info("📨 Booking Created received: bookingId={}", event.bookingId());
 
         try {
             accommodationService.attemptReservation(
@@ -57,7 +40,11 @@ public class BookingCreationConsumer {
             );
 
         } catch (Exception e) {
-            log.error("❌ Locking failed for booking {}: {}", event.bookingId(), e.getMessage());
+            // Этот catch оставляем ТОЛЬКО для бизнес-ошибок (например, место уже занято),
+            // чтобы отправить событие InventoryFailed.
+            // Но если упадет сама база (ConnectionException), оно пролетит выше и вызовет ретрай.
+
+            log.error("❌ Locking failed (Business Logic): {}", e.getMessage());
             messageProducer.sendInventoryFailed(
                     new InventoryReservationFailedEvent(
                             event.bookingId(),
