@@ -19,61 +19,28 @@ public class PaymentKafkaListener {
     private final PaymentMessageProducer paymentMessageProducer;
 
     // 1. ИНИЦИАЛИЗАЦИЯ ПЛАТЕЖА (Пришло от Accommodation)
-    @KafkaListener(
-            topics = "${application.kafka.topics.inventory-reserved}",
-            groupId = "${spring.kafka.consumer.group-id}"
-    )
+    @KafkaListener(topics = "${application.kafka.topics.inventory-reserved}")
     public void onInventoryReserved(InventoryReservedEvent event) {
-        log.info("📨 Received InventoryReservedEvent for bookingId={}. Initializing payment...", event.bookingId());
+        log.info("📨 Received InventoryReservedEvent: bookingId={}", event.bookingId());
 
-        try {
-            // Создаем сессию в Stripe и сохраняем платеж как PENDING
-            paymentService.initiatePayment(event.bookingId(), event.userId(), event.totalPrice());
+        // Теперь, если база упадет, Spring будет ретраить (3 раза по 1 сек).
+        paymentService.initiatePayment(event.bookingId(), event.userId(), event.totalPrice());
 
-            log.info("✅ Payment initiated for bookingId={}. Waiting for user to pay.", event.bookingId());
-
-            // ВАЖНО: Мы НЕ отправляем PaymentSuccess здесь.
-            // Успех отправится только когда Stripe пришлет Webhook (или мы его сэмулируем).
-
-        } catch (Exception e) {
-            log.error("❌ Failed to initiate payment for bookingId={}: {}", event.bookingId(), e.getMessage());
-
-            // Сообщаем Booking Service, что всё пропало
-            paymentMessageProducer.sendPaymentFailed(new PaymentFailedEvent(
-                    event.bookingId(),
-                    event.userId(),
-                    "Initialization failed: " + e.getMessage()
-            ));
-        }
+        log.info("✅ Payment initiated request processing for bookingId={}", event.bookingId());
     }
 
-    @KafkaListener(
-            topics = "${application.kafka.topics.booking-cancellation-requested}",
-            groupId = "${spring.kafka.consumer.group-id}"
-    )
+    // 2. ОТМЕНА ПЛАТЕЖА
+    @KafkaListener(topics = "${application.kafka.topics.booking-cancellation-requested}")
     public void onBookingCancellationRequested(BookingCancellationRequestedEvent event) {
-        log.info("📨 Запрос на отмену платежа: bookingId={}, возврат={}", event.bookingId(), event.refundNeeded());
+        log.info("📨 Cancellation Request: bookingId={}, refund={}", event.bookingId(), event.refundNeeded());
 
-        // 1. ЛОГИКА ДЕНЕГ
         if (event.refundNeeded()) {
-            try {
-                // Ты сказал, что метод принимает String, поэтому приводим bookingId к строке
-                paymentService.cancelPayment(String.valueOf(event.bookingId()));
-                log.info("💰 Возврат оформлен через Stripe для брони {}", event.bookingId());
-            } catch (Exception e) {
-                log.error("❌ Ошибка при возврате денег: {}", e.getMessage());
-            }
-        } else {
-            log.info("ℹ️ Возврат денег не требуется.");
+            paymentService.cancelPayment(String.valueOf(event.bookingId()));
+            log.info("💰 Refund processed via Stripe for booking {}", event.bookingId());
         }
 
         paymentMessageProducer.sendPaymentCanceled(
-                new PaymentCanceledEvent(
-                        event.bookingId(),
-                        event.paymentId()
-                )
+                new PaymentCanceledEvent(event.bookingId(), event.paymentId())
         );
-
-        log.info("📤 Отправлено подтверждение отмены в Kafka для брони {}", event.bookingId());
     }
 }
