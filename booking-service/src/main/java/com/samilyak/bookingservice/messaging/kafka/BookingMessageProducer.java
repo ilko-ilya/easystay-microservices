@@ -1,7 +1,6 @@
 package com.samilyak.bookingservice.messaging.kafka;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.samilyak.bookingservice.dto.event.BookingCancellationRequestedEvent;
 import com.samilyak.bookingservice.dto.event.BookingCreatedEvent;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Component;
 public class BookingMessageProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private final ObjectMapper objectMapper;
 
     @Value("${application.kafka.topics.booking-cancellation-requested}")
     private String bookingCancellationTopic;
@@ -28,31 +26,20 @@ public class BookingMessageProducer {
     private String bookingCreatedTopic;
 
     public void sendBookingCancellationRequested(BookingCancellationRequestedEvent event) {
-        log.info("Sending BookingCancellationRequestedEvent for bookingId={}", event.bookingId());
-
-        Message<BookingCancellationRequestedEvent> message = MessageBuilder
-                .withPayload(event)
-                .setHeader(KafkaHeaders.TOPIC, bookingCancellationTopic)
-                .setHeader(KafkaHeaders.KEY, String.valueOf(event.bookingId()))
-                .build();
-
-        kafkaTemplate.send(message);
+        log.info("📤 Sending Cancellation Request: bookingId={}", event.bookingId());
+        sendMessage(bookingCancellationTopic, String.valueOf(event.bookingId()), event);
     }
 
     public void sendBookingCreated(BookingCreatedEvent event) {
-        try {
-            String jsonPreview = objectMapper.writeValueAsString(event);
-            log.info("🚀 [DEBUG] ОТПРАВЛЯЕМ В KAFKA: {}", jsonPreview);
-        } catch (JsonProcessingException e) {
-            log.error("⚠️ Не удалось сериализовать для лога", e);
-        }
+        log.info("📤 Sending Booking Created: bookingId={}", event.bookingId());
+        sendMessage(bookingCreatedTopic, String.valueOf(event.bookingId()), event);
+    }
 
-        log.info("Sending BookingCreatedEvent to topic: {}", bookingCreatedTopic);
-
-        Message<BookingCreatedEvent> message = MessageBuilder
-                .withPayload(event)
-                .setHeader(KafkaHeaders.TOPIC, bookingCreatedTopic)
-                .setHeader(KafkaHeaders.KEY, String.valueOf(event.bookingId()))
+    private void sendMessage(String topic, String key, Object payload) {
+        Message<Object> message = MessageBuilder
+                .withPayload(payload)
+                .setHeader(KafkaHeaders.TOPIC, topic)
+                .setHeader(KafkaHeaders.KEY, key)
                 .build();
 
         kafkaTemplate.send(message);

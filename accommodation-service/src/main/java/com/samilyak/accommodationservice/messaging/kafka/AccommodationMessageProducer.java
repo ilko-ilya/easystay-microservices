@@ -26,41 +26,31 @@ public class AccommodationMessageProducer {
     private String inventoryFailedTopic;
 
     @Value("${application.kafka.topics.dates-unlocked}")
-    private String topicName;
+    private String datesUnlockedTopic;
 
-    //  УСПЕХ: Отправляем эстафету в Payment
+    // УСПЕХ: Отправляем эстафету в Payment
     public void sendInventoryReserved(InventoryReservedEvent event) {
-        log.info("📤 Sending InventoryReservedEvent for bookingId={}", event.bookingId());
-
-        Message<InventoryReservedEvent> message = MessageBuilder
-                .withPayload(event)
-                .setHeader(KafkaHeaders.TOPIC, inventoryReservedTopic)
-                .setHeader(KafkaHeaders.KEY, String.valueOf(event.bookingId()))
-                .build();
-
-        kafkaTemplate.send(message);
+        log.info("📤 Sending Inventory Reserved: bookingId={}", event.bookingId());
+        sendMessage(inventoryReservedTopic, String.valueOf(event.bookingId()), event);
     }
 
-    //  ПРОВАЛ: Сообщаем Booking Service об ошибке
+    // ПРОВАЛ: Сообщаем Booking Service об ошибке
     public void sendInventoryFailed(InventoryReservationFailedEvent event) {
-        log.warn("📤 Sending InventoryReservationFailedEvent for bookingId={}", event.bookingId());
-
-        Message<InventoryReservationFailedEvent> message = MessageBuilder
-                .withPayload(event)
-                .setHeader(KafkaHeaders.TOPIC, inventoryFailedTopic)
-                .setHeader(KafkaHeaders.KEY, String.valueOf(event.bookingId()))
-                .build();
-
-        kafkaTemplate.send(message);
+        log.warn("📤 Sending Inventory Failed: bookingId={}, reason={}", event.bookingId(), event.reason());
+        sendMessage(inventoryFailedTopic, String.valueOf(event.bookingId()), event);
     }
 
+    // ОТЧЕТ: Даты разблокированы
     public void sendDatesUnlocked(DatesUnlockedEvent event) {
-        log.info("📤 Sending dates unlocked event for booking {}", event.bookingId());
+        log.info("📤 Sending Dates Unlocked: bookingId={}", event.bookingId());
+        sendMessage(datesUnlockedTopic, String.valueOf(event.bookingId()), event);
+    }
 
-        Message<DatesUnlockedEvent> message = MessageBuilder
-                .withPayload(event)
-                .setHeader(KafkaHeaders.TOPIC, topicName)
-                .setHeader(KafkaHeaders.KEY, String.valueOf(event.bookingId()))
+    private void sendMessage(String topic, String key, Object payload) {
+        Message<Object> message = MessageBuilder
+                .withPayload(payload)
+                .setHeader(KafkaHeaders.TOPIC, topic)
+                .setHeader(KafkaHeaders.KEY, key)
                 .build();
 
         kafkaTemplate.send(message);
