@@ -1,6 +1,5 @@
 package com.samilyak.bookingservice.messaging.kafka;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.samilyak.bookingservice.dto.event.DatesUnlockedEvent;
 import com.samilyak.bookingservice.dto.event.InventoryReservationFailedEvent;
 import com.samilyak.bookingservice.dto.event.PaymentCanceledEvent;
@@ -18,96 +17,49 @@ import org.springframework.stereotype.Component;
 public class BookingKafkaListener {
 
     private final BookingSagaService bookingSagaService;
-    private final ObjectMapper objectMapper;
 
     // =========================================================================
     // 1. УСПЕШНАЯ ОПЛАТА (Payment Success)
     // =========================================================================
-    @KafkaListener(
-            topics = "${application.kafka.topics.payment-success}",
-            groupId = "${spring.kafka.consumer.group-id}"
-    )
-    public void onPaymentSuccess(String message) { // 👈 Принимаем String
-        try {
-            log.info("📨 RAW Payment Success: {}", message);
-            PaymentSuccessEvent event = objectMapper.readValue(message, PaymentSuccessEvent.class);
-
-            bookingSagaService.finalizeBookingCreation(event.bookingId(), event.paymentSessionId());
-        } catch (Exception e) {
-            log.error("❌ Error parsing PaymentSuccessEvent: {}", e.getMessage());
-        }
+    @KafkaListener(topics = "${application.kafka.topics.payment-success}")
+    public void onPaymentSuccess(PaymentSuccessEvent event) {
+        log.info("📨 Payment Success received: bookingId={}", event.bookingId());
+        bookingSagaService.finalizeBookingCreation(event.bookingId(), event.paymentSessionId());
     }
 
     // =========================================================================
     // 2. ОШИБКА ИНВЕНТАРИЗАЦИИ (Inventory Failed)
     // =========================================================================
-    @KafkaListener(
-            topics = "${application.kafka.topics.inventory-failed}",
-            groupId = "${spring.kafka.consumer.group-id}"
-    )
-    public void onInventoryFailure(String message) {
-        try {
-            log.info("📨 RAW Inventory Failed: {}", message);
-            InventoryReservationFailedEvent event = objectMapper.readValue(message, InventoryReservationFailedEvent.class);
-
-            bookingSagaService.failBookingCreation(event.bookingId(), event.reason());
-        } catch (Exception e) {
-            log.error("❌ Error parsing InventoryReservationFailedEvent: {}", e.getMessage());
-        }
+    @KafkaListener(topics = "${application.kafka.topics.inventory-failed}")
+    public void onInventoryFailure(InventoryReservationFailedEvent event) {
+        log.info("📨 Inventory Failed received: bookingId={}", event.bookingId());
+        bookingSagaService.failBookingCreation(event.bookingId(), event.reason());
     }
 
     // =========================================================================
     // 3. ОШИБКА ОПЛАТЫ (Payment Failed)
     // =========================================================================
-    @KafkaListener(
-            topics = "${application.kafka.topics.payment-failed}",
-            groupId = "${spring.kafka.consumer.group-id}"
-    )
-    public void onPaymentFailure(String message) {
-        try {
-            log.info("📨 RAW Payment Failed: {}", message);
-            // Тут используем класс события ошибки оплаты
-            PaymentFailedEvent event = objectMapper.readValue(message, PaymentFailedEvent.class);
-
-            bookingSagaService.failBookingCreation(event.bookingId(), event.reason());
-        } catch (Exception e) {
-            log.error("❌ Error parsing PaymentFailedEvent: {}", e.getMessage());
-        }
+    @KafkaListener(topics = "${application.kafka.topics.payment-failed}")
+    public void onPaymentFailure(PaymentFailedEvent event) {
+        log.info("📨 Payment Failed received: bookingId={}", event.bookingId());
+        bookingSagaService.failBookingCreation(event.bookingId(), event.reason());
     }
 
     // =========================================================================
     // 4. ОТМЕНА ОПЛАТЫ (Payment Canceled)
     // =========================================================================
-    @KafkaListener(
-            topics = "${application.kafka.topics.payment-canceled}",
-            groupId = "${spring.kafka.consumer.group-id}"
-    )
-    public void onPaymentCanceled(String message) {
-        try {
-            log.info("📨 RAW Payment Canceled: {}", message);
-            PaymentCanceledEvent event = objectMapper.readValue(message, PaymentCanceledEvent.class);
-
-            bookingSagaService.handlePaymentCanceled(event.bookingId());
-        } catch (Exception e) {
-            log.error("❌ Error parsing PaymentCanceledEvent: {}", e.getMessage());
-        }
+    @KafkaListener(topics = "${application.kafka.topics.payment-canceled}")
+    public void onPaymentCanceled(PaymentCanceledEvent event) {
+        log.info("📨 Payment Canceled received: bookingId={}", event.bookingId());
+        bookingSagaService.handlePaymentCanceled(event.bookingId());
     }
 
     // =========================================================================
     // 5. ДАТЫ РАЗБЛОКИРОВАНЫ (Dates Unlocked)
     // =========================================================================
-    @KafkaListener(
-            topics = "${application.kafka.topics.dates-unlocked}",
-            groupId = "${spring.kafka.consumer.group-id}"
-    )
-    public void onDatesUnlocked(String message) {
-        try {
-            log.info("📨 RAW Dates Unlocked: {}", message);
-            DatesUnlockedEvent event = objectMapper.readValue(message, DatesUnlockedEvent.class);
-
-            bookingSagaService.handleDatesUnlocked(event.bookingId());
-        } catch (Exception e) {
-            log.error("❌ Error parsing DatesUnlockedEvent: {}", e.getMessage());
-        }
+    @KafkaListener(topics = "${application.kafka.topics.dates-unlocked}")
+    public void onDatesUnlocked(DatesUnlockedEvent event) {
+        log.info("📨 Dates Unlocked received: bookingId={}", event.bookingId());
+        bookingSagaService.handleDatesUnlocked(event.bookingId());
     }
 }
