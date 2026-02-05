@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.4.1' // Свежая версия
-    id 'io.spring.dependency-management' version '1.1.7' // 👈 ВАЖНО: версия, которая работает с Gradle 8+
+    id 'org.springframework.boot' version '3.4.1'
+    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.samilyak'
@@ -35,6 +35,12 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // 1. Actuator (нужен для работы метрик и наблюдения)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // 2. Tracing Bridge (чтобы понимать traceId)
+    implementation 'io.micrometer:micrometer-tracing-bridge-brave'
 }
 
 dependencyManagement {
