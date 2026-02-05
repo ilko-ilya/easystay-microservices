@@ -1,6 +1,5 @@
 package com.samilyak.accommodationservice.client;
 
-import com.samilyak.accommodationservice.config.FeignTracingConfig;
 import com.samilyak.accommodationservice.dto.AddressRequestDto;
 import com.samilyak.accommodationservice.dto.AddressResponseDto;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -14,8 +13,7 @@ import java.util.List;
 
 @FeignClient(
         name = "address-service",
-        path = "/api/addresses",
-        configuration = FeignTracingConfig.class
+        path = "/api/addresses"
 )
 public interface AddressClient {
 

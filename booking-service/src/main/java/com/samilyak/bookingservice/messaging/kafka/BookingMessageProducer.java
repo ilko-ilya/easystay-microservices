@@ -1,6 +1,5 @@
 package com.samilyak.bookingservice.messaging.kafka;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.samilyak.bookingservice.dto.event.BookingCancellationRequestedEvent;
 import com.samilyak.bookingservice.dto.event.BookingCreatedEvent;
 import lombok.RequiredArgsConstructor;
